@@ -58,6 +58,8 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 from api.v1.health import router as health_router  # noqa: E402
 from api.v1.context import router as context_router  # noqa: E402
+from api.v1.workflow import router as workflow_router  # noqa: E402
 
 app.include_router(health_router, prefix="/api/v1")
 app.include_router(context_router, prefix="/api/v1")
+app.include_router(workflow_router, prefix="/api/v1")

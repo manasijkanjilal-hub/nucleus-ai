@@ -88,13 +88,23 @@ npm run dev
 
 ---
 
-## API Endpoints (Step 2)
+## API Endpoints
+
+### Context Vault (Module A — Step 2)
 
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/api/v1/health` | Health check |
 | `POST` | `/api/v1/context/ingest` | Ingest text/PDF into Context Vault |
 | `POST` | `/api/v1/context/search` | Semantic search over ingested content |
+
+### Agentic Workflow Engine (Module B — Step 3)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/v1/workflow/execute` | Run multi-agent workflow (sync) |
+| `POST` | `/api/v1/workflow/execute/async` | Queue workflow for background execution |
+| `GET` | `/api/v1/workflow/status/{job_id}` | Check async job status |
 
 ### Example: Ingest text
 
@@ -114,6 +124,67 @@ curl -X POST http://localhost:8000/api/v1/context/search \
   -d '{"query": "brand tone of voice", "brand_id": "acme-corp", "limit": 5}'
 ```
 
+### Example: Execute Workflow
+
+```bash
+curl -X POST http://localhost:8000/api/v1/workflow/execute \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "prompt": "Launch a Q3 integrated campaign for our new product line targeting millennials",
+    "brand_id": "acme-corp"
+  }'
+```
+
+Response includes:
+- `task_plan`: Structured sub-tasks from the Planner
+- `generated_content`: Marketing assets from the Writer
+- `reviewer_feedback`: Quality/safety review from the Reviewer
+- `approved`: Whether the content passed review
+- `iterations`: Number of revision cycles
+
+### Example: Async Workflow
+
+```bash
+# Queue the workflow
+curl -X POST http://localhost:8000/api/v1/workflow/execute/async \
+  -H 'Content-Type: application/json' \
+  -d '{"prompt": "Create holiday season email campaign", "brand_id": "acme-corp"}'
+
+# Check status (replace JOB_ID with the returned job_id)
+curl http://localhost:8000/api/v1/workflow/status/JOB_ID
+```
+
+---
+
+## Multi-Agent Architecture (Module B)
+
+The Agentic Workflow Engine uses **LangGraph StateGraph** with three collaborating agents:
+
+```
+┌──────────┐     ┌──────────┐     ┌──────────┐
+│ Planner  │ ──▶ │  Writer  │ ──▶ │ Reviewer │
+└──────────┘     └──────────┘     └──────────┘
+                      ▲                 │
+                      │   (revise)      │
+                      └─────────────────┘
+                                        │ (approve)
+                                        ▼
+                                      END
+```
+
+| Agent | Role | Key Features |
+|-------|------|-------------|
+| **Planner** | Decomposes user prompt into sub-tasks | Structured JSON output (email, ad copy, landing page, etc.) |
+| **Writer** | Generates marketing assets | Queries Context Vault for brand tone/guidelines, uses RAG |
+| **Reviewer** | Validates content quality & safety | Brand safety checks, formatting validation, iteration limit |
+
+**Files:**
+- `backend/agents/state.py` — TypedDict state schema
+- `backend/agents/nodes.py` — Planner, Writer, Reviewer node functions
+- `backend/agents/tools.py` — LangChain tool for Context Vault search
+- `backend/agents/graph.py` — StateGraph construction and routing logic
+- `backend/api/v1/workflow.py` — REST API endpoints
+
 ---
 
 ## Database Models
@@ -130,7 +201,7 @@ curl -X POST http://localhost:8000/api/v1/context/search \
 
 - [x] Step 1: Project scaffolding & tooling
 - [x] Step 2: Database models & Context Vault (Module A)
-- [ ] Step 3: Multi-Agent Graph (Module B)
+- [x] Step 3: Multi-Agent Graph (Module B)
 - [ ] Step 4: Attribution Engine (Module C)
 - [ ] Step 5: Frontend dashboard
 - [ ] Step 6: Privacy-Native Processing (Module D)
