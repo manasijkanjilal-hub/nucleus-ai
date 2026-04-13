@@ -1,42 +1,94 @@
-# Python
+# ============================================
+# Nucleus AI — .gitignore
+# ============================================
+
+# ---------- Environment / Secrets ----------
+.env
+.env.local
+.env.production
+.env.staging
+.env.*.local
+!.env.example
+!.env.production.example
+!.env.local.example
+
+# ---------- Python ----------
 __pycache__/
 *.pyc
 *.pyo
-.env
+*.pyd
 *.egg-info/
+*.egg
+dist/
+build/
 venv/
 .venv/
+*.whl
 
-# Node
+# ---------- Node / Frontend ----------
 node_modules/
 .next/
+out/
+.yarn/cache
+.yarn/install-state.gz
+.pnp.*
+.turbo/
 
-# IDE
+# ---------- IDE / Editor ----------
 .idea/
 .vscode/
 *.swp
+*.swo
+*~
+.project
+.settings/
 
-# OS
+# ---------- OS ----------
 .DS_Store
 Thumbs.db
+ehthumbs.db
+Desktop.ini
 
-# Docker volumes
+# ---------- Docker volumes ----------
 pgdata/
 qdrant_data/
-frontend/.git
 
-
-
-# Production secrets
-.env.production
-.env.staging
+# ---------- SSL / Certificates ----------
 *.pem
+*.key
+*.crt
+*.csr
 nginx/ssl/fullchain.pem
 nginx/ssl/privkey.pem
+!nginx/ssl/.gitkeep
 
-# Backups
+# ---------- Production secrets ----------
+*.p12
+*.pfx
+
+# ---------- Backups ----------
 /backups/
 
-# Monitoring data
+# ---------- Monitoring data ----------
 prometheus_data/
 grafana_data/
+
+# ---------- Logs ----------
+*.log
+.logs/
+logs/
+
+# ---------- Testing / Coverage ----------
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+
+# ---------- Abacus AI (platform internals) ----------
+.abacus.donotdelete
+
+# ---------- Misc ----------
+*.sqlite3
+*.db
+.cache/
+tmp/
