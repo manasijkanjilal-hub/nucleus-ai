@@ -102,6 +102,9 @@ class Campaign(Base):
         SAEnum("draft", "active", "paused", "completed", name="campaign_status"),
         default="draft",
     )
+    budget: Mapped[Optional[float]] = mapped_column(Float, nullable=True, default=0.0)
+    start_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    end_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     goal: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
@@ -140,6 +143,8 @@ class SpendLog(Base):
     )
     date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     amount_usd: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    channel: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     impressions: Mapped[int] = mapped_column(default=0)
     clicks: Mapped[int] = mapped_column(default=0)
     created_at: Mapped[datetime] = mapped_column(
@@ -168,7 +173,11 @@ class ConversionEvent(Base):
         ForeignKey("campaigns.id", ondelete="CASCADE"),
         nullable=False,
     )
+    user_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # external user identifier
     event_type: Mapped[str] = mapped_column(String(100), nullable=False)  # e.g. "purchase", "signup"
+    conversion_type: Mapped[Optional[str]] = mapped_column(
+        String(100), nullable=True, default="general"
+    )  # e.g. "new_customer", "returning", "general"
     revenue_usd: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     metadata_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON blob
     occurred_at: Mapped[datetime] = mapped_column(

@@ -106,6 +106,44 @@ npm run dev
 | `POST` | `/api/v1/workflow/execute/async` | Queue workflow for background execution |
 | `GET` | `/api/v1/workflow/status/{job_id}` | Check async job status |
 
+### Attribution Engine (Module C — Step 4)
+
+#### Campaign Management
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/v1/campaigns/` | Create a new campaign |
+| `GET` | `/api/v1/campaigns/` | List campaigns (filter by brand, status, dates) |
+| `GET` | `/api/v1/campaigns/{id}` | Get campaign details |
+| `PUT` | `/api/v1/campaigns/{id}` | Update a campaign |
+| `DELETE` | `/api/v1/campaigns/{id}` | Delete a campaign |
+
+#### Spend Tracking
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/v1/spend/` | Log a spend entry |
+| `GET` | `/api/v1/spend/campaign/{id}` | Get spend entries for a campaign |
+| `GET` | `/api/v1/spend/summary` | Aggregate spend by campaign/channel |
+
+#### Conversion Events
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/v1/conversions/` | Record a conversion event |
+| `GET` | `/api/v1/conversions/campaign/{id}` | Get conversions for a campaign |
+| `GET` | `/api/v1/conversions/summary` | Aggregate conversions by campaign |
+
+#### Attribution Metrics
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/attribution/roas/{id}` | Calculate ROAS (Revenue / Spend) |
+| `GET` | `/api/v1/attribution/cac/{id}` | Calculate CAC (Spend / New Customers) |
+| `GET` | `/api/v1/attribution/ltv/{id}` | Calculate LTV (Revenue / Unique Customers) |
+| `GET` | `/api/v1/attribution/dashboard` | Comprehensive dashboard with all metrics |
+| `GET` | `/api/v1/attribution/report/{id}` | Detailed attribution report for a campaign |
+
 ### Example: Ingest text
 
 ```bash
@@ -202,9 +240,9 @@ The Agentic Workflow Engine uses **LangGraph StateGraph** with three collaborati
 - [x] Step 1: Project scaffolding & tooling
 - [x] Step 2: Database models & Context Vault (Module A)
 - [x] Step 3: Multi-Agent Graph (Module B)
-- [ ] Step 4: Attribution Engine (Module C)
+- [x] Step 4: Attribution Engine (Module C)
 - [ ] Step 5: Frontend dashboard
-- [ ] Step 6: Privacy-Native Processing (Module D)
+- [x] Step 6: Privacy-Native Processing (Module D)
 
 ---
 
