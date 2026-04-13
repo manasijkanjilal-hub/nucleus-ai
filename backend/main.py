@@ -65,3 +65,11 @@ app.include_router(health_router, prefix="/api/v1")
 app.include_router(context_router, prefix="/api/v1")
 app.include_router(workflow_router, prefix="/api/v1")
 app.include_router(attribution_router, prefix="/api/v1")
+
+
+# ---------------------------------------------------------------------------
+# Root health endpoint (for Docker / LB health checks)
+# ---------------------------------------------------------------------------
+@app.get("/health", tags=["Health"])
+async def root_health():
+    return {"status": "healthy", "service": "nucleus-ai-backend"}

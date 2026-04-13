@@ -1,0 +1,4 @@
+# Place your SSL certificates here:
+# - fullchain.pem
+# - privkey.pem
+# See docs/deployment/self-hosted.md for Let's Encrypt setup

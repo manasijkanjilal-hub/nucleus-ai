@@ -24,3 +24,19 @@ Thumbs.db
 pgdata/
 qdrant_data/
 frontend/.git
+
+
+
+# Production secrets
+.env.production
+.env.staging
+*.pem
+nginx/ssl/fullchain.pem
+nginx/ssl/privkey.pem
+
+# Backups
+/backups/
+
+# Monitoring data
+prometheus_data/
+grafana_data/
