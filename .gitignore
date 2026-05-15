@@ -93,5 +93,3 @@ htmlcov/
 .cache/
 tmp/
 
-# Temporary: exclude workflow files for restricted GitHub push
-.github/workflows/
