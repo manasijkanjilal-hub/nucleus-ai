@@ -1,9 +1,40 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from '@/middleware/rbac';
 import { hasMinRole } from '@/lib/permissions';
 import { recordAudit } from '@/lib/audit';
+import { sanitizeText } from '@/lib/sanitize';
+
+const brandSchema = z.object({
+  name: z.string().trim().min(1, 'Brand name is required').max(200),
+  industry: z.string().trim().max(200).optional().nullable(),
+  targetAudience: z.string().trim().max(2000).optional().nullable(),
+  brandVoice: z.string().trim().max(2000).optional().nullable(),
+  description: z.string().trim().max(5000).optional().nullable(),
+  website: z.string().trim().max(500).optional().nullable(),
+  logo: z.string().trim().max(2000).optional().nullable(),
+  guidelines: z.string().trim().max(10000).optional().nullable(),
+  brandColors: z.any().optional(),
+});
+
+/** Sanitize free-text string fields (XSS defense-in-depth). */
+function cleanBrand(data: z.infer<typeof brandSchema>) {
+  const clean = (v: string | null | undefined) =>
+    v == null ? null : sanitizeText(v) || null;
+  return {
+    name: sanitizeText(data.name),
+    industry: clean(data.industry),
+    targetAudience: clean(data.targetAudience),
+    brandVoice: clean(data.brandVoice),
+    description: clean(data.description),
+    website: clean(data.website),
+    logo: clean(data.logo),
+    guidelines: clean(data.guidelines),
+    brandColors: data.brandColors ?? undefined,
+  };
+}
 
 export async function GET() {
   const guard = await requirePermission('brand:read');
@@ -28,21 +59,23 @@ export async function POST(request: Request) {
   if (!guard.authorized) return guard.response;
   const { user } = guard;
   try {
-    const body = await request.json();
-    if (!body?.name || typeof body.name !== 'string' || !body.name.trim()) {
-      return NextResponse.json({ error: 'Brand name is required' }, { status: 400 });
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
+    const parsed = brandSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message ?? 'Invalid input' },
+        { status: 400 }
+      );
+    }
+    const data = cleanBrand(parsed.data);
     const brand = await prisma.brandProfile.create({
       data: {
-        name: body.name.trim(),
-        industry: body.industry || null,
-        targetAudience: body.targetAudience || null,
-        brandVoice: body.brandVoice || null,
-        description: body.description || null,
-        website: body.website || null,
-        logo: body.logo || null,
-        guidelines: body.guidelines || null,
-        brandColors: body.brandColors ?? undefined,
+        ...data,
         userId: user.id,
         createdBy: user.id,
       },

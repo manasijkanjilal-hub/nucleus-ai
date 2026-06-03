@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { recordAudit } from '@/lib/audit';
+import { resetPasswordSchema, firstZodError } from '@/lib/validations/auth';
 
 /**
  * GET /api/auth/reset-password?token=...
@@ -28,16 +29,17 @@ export async function GET(request: Request) {
  */
 export async function POST(request: Request) {
   try {
-    const { token, password } = await request.json();
-    if (!token || typeof token !== 'string') {
-      return NextResponse.json({ error: 'Reset token is required' }, { status: 400 });
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
-    if (typeof password !== 'string' || password.length < 8) {
-      return NextResponse.json(
-        { error: 'Password must be at least 8 characters' },
-        { status: 400 }
-      );
+    const parsed = resetPasswordSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: firstZodError(parsed.error) }, { status: 400 });
     }
+    const { token, password } = parsed.data;
 
     const user = await prisma.user.findUnique({ where: { passwordResetToken: token } });
     if (!user || !user.passwordResetExpires || user.passwordResetExpires < new Date()) {

@@ -2,13 +2,21 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
+import { loginSchema, firstZodError } from '@/lib/validations/auth';
 
 export async function POST(request: Request) {
   try {
-    const { email, password } = await request.json();
-    if (!email || !password) {
-      return NextResponse.json({ error: 'Email and password required' }, { status: 400 });
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
+    const parsed = loginSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: firstZodError(parsed.error) }, { status: 400 });
+    }
+    const { email, password } = parsed.data;
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });

@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/middleware/rbac';
 import { recordAudit } from '@/lib/audit';
+import { changePasswordSchema, firstZodError } from '@/lib/validations/auth';
 
 /**
  * POST /api/auth/change-password
@@ -15,20 +16,17 @@ export async function POST(request: Request) {
   if (!guard.authorized) return guard.response;
 
   try {
-    const { currentPassword, newPassword } = await request.json();
-
-    if (!currentPassword || !newPassword) {
-      return NextResponse.json(
-        { error: 'Current and new password are required' },
-        { status: 400 }
-      );
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
-    if (typeof newPassword !== 'string' || newPassword.length < 8) {
-      return NextResponse.json(
-        { error: 'New password must be at least 8 characters' },
-        { status: 400 }
-      );
+    const parsed = changePasswordSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: firstZodError(parsed.error) }, { status: 400 });
     }
+    const { currentPassword, newPassword } = parsed.data;
 
     const user = await prisma.user.findUnique({ where: { id: guard.user.id } });
     if (!user) {

@@ -5,27 +5,26 @@ import { prisma } from '@/lib/prisma';
 import { recordAudit } from '@/lib/audit';
 import { generateToken } from '@/lib/tokens';
 import { sendVerificationEmail, isEmailConfigured } from '@/lib/email';
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+import { signupSchema, firstZodError } from '@/lib/validations/auth';
+import { sanitizeText } from '@/lib/sanitize';
 
 export async function POST(request: Request) {
   try {
-    const { email, password, name } = await request.json();
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
 
-    // ---- Input validation ----
-    if (!email || !password) {
-      return NextResponse.json({ error: 'Email and password required' }, { status: 400 });
+    // ---- Input validation (Zod) ----
+    const parsed = signupSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: firstZodError(parsed.error) }, { status: 400 });
     }
-    const normalizedEmail = String(email).toLowerCase().trim();
-    if (!EMAIL_RE.test(normalizedEmail)) {
-      return NextResponse.json({ error: 'Invalid email address' }, { status: 400 });
-    }
-    if (typeof password !== 'string' || password.length < 8) {
-      return NextResponse.json(
-        { error: 'Password must be at least 8 characters' },
-        { status: 400 }
-      );
-    }
+    const normalizedEmail = parsed.data.email; // already lowercased & trimmed
+    const password = parsed.data.password;
+    const name = parsed.data.name ? sanitizeText(parsed.data.name) : null;
 
     const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (existing) {
@@ -38,7 +37,7 @@ export async function POST(request: Request) {
       data: {
         email: normalizedEmail,
         password: hashedPassword,
-        name: name ? String(name).trim() : null,
+        name: name || null,
         // New self-service signups default to the lowest-privilege role.
         role: 'VIEWER',
         // Account starts unverified until the email link is confirmed.

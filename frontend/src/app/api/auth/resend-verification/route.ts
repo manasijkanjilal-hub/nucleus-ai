@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { generateToken } from '@/lib/tokens';
 import { sendVerificationEmail, isEmailConfigured } from '@/lib/email';
+import { resendVerificationSchema, firstZodError } from '@/lib/validations/auth';
 
 /**
  * POST /api/auth/resend-verification
@@ -12,11 +13,17 @@ import { sendVerificationEmail, isEmailConfigured } from '@/lib/email';
  */
 export async function POST(request: Request) {
   try {
-    const { email } = await request.json();
-    const normalized = String(email || '').toLowerCase().trim();
-    if (!normalized) {
-      return NextResponse.json({ error: 'Email is required' }, { status: 400 });
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
+    const parsed = resendVerificationSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: firstZodError(parsed.error) }, { status: 400 });
+    }
+    const normalized = parsed.data.email;
 
     const user = await prisma.user.findUnique({ where: { email: normalized } });
     let devToken: string | undefined;

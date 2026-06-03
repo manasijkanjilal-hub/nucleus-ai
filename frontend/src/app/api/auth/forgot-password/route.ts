@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { generateToken, expiryFromNow } from '@/lib/tokens';
 import { sendPasswordResetEmail, isEmailConfigured } from '@/lib/email';
 import { recordAudit } from '@/lib/audit';
+import { forgotPasswordSchema, firstZodError } from '@/lib/validations/auth';
 
 /**
  * POST /api/auth/forgot-password
@@ -13,11 +14,17 @@ import { recordAudit } from '@/lib/audit';
  */
 export async function POST(request: Request) {
   try {
-    const { email } = await request.json();
-    const normalized = String(email || '').toLowerCase().trim();
-    if (!normalized) {
-      return NextResponse.json({ error: 'Email is required' }, { status: 400 });
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
+    const parsed = forgotPasswordSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: firstZodError(parsed.error) }, { status: 400 });
+    }
+    const normalized = parsed.data.email;
 
     const user = await prisma.user.findUnique({ where: { email: normalized } });
     let devToken: string | undefined;

@@ -1,9 +1,26 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from '@/middleware/rbac';
 import { hasMinRole } from '@/lib/permissions';
 import { recordAudit } from '@/lib/audit';
+import { sanitizeText } from '@/lib/sanitize';
+
+const brandUpdateSchema = z.object({
+  name: z.string().trim().min(1).max(200).optional(),
+  industry: z.string().trim().max(200).optional().nullable(),
+  targetAudience: z.string().trim().max(2000).optional().nullable(),
+  brandVoice: z.string().trim().max(2000).optional().nullable(),
+  description: z.string().trim().max(5000).optional().nullable(),
+  website: z.string().trim().max(500).optional().nullable(),
+  logo: z.string().trim().max(2000).optional().nullable(),
+  guidelines: z.string().trim().max(10000).optional().nullable(),
+  brandColors: z.any().optional(),
+});
+
+const cleanField = (v: string | null | undefined) =>
+  v == null ? null : sanitizeText(v) || null;
 
 /** Returns the brand if the user may access it, else null. Admins+ bypass ownership. */
 async function getAccessibleBrand(id: string, userId: string, role: string) {
@@ -25,19 +42,32 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     if (forbidden) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     if (!brand) return NextResponse.json({ error: 'Brand not found' }, { status: 404 });
 
-    const body = await request.json();
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+    const parsed = brandUpdateSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message ?? 'Invalid input' },
+        { status: 400 }
+      );
+    }
+    const b = parsed.data;
     const updated = await prisma.brandProfile.update({
       where: { id },
       data: {
-        name: body.name ?? brand.name,
-        industry: body.industry ?? null,
-        targetAudience: body.targetAudience ?? null,
-        brandVoice: body.brandVoice ?? null,
-        description: body.description ?? null,
-        website: body.website ?? null,
-        logo: body.logo ?? null,
-        guidelines: body.guidelines ?? null,
-        brandColors: body.brandColors ?? undefined,
+        name: b.name ? sanitizeText(b.name) : brand.name,
+        industry: cleanField(b.industry),
+        targetAudience: cleanField(b.targetAudience),
+        brandVoice: cleanField(b.brandVoice),
+        description: cleanField(b.description),
+        website: cleanField(b.website),
+        logo: cleanField(b.logo),
+        guidelines: cleanField(b.guidelines),
+        brandColors: b.brandColors ?? undefined,
       },
     });
     await recordAudit({
