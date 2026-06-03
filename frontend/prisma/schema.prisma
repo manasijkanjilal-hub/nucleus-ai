@@ -174,7 +174,8 @@ model Campaign {
 
 model Document {
   id       String       @id @default(cuid())
-  name     String
+  name     String       // original (sanitized) display name
+  fileName String?      // stored file name on disk (UUID-based)
   type     DocumentType
 
   filePath String?
@@ -190,7 +191,11 @@ model Document {
   // Processing & embeddings
   processingStatus ProcessingStatus @default(PENDING)
   embeddingStatus  ProcessingStatus @default(PENDING)
-  vectorId         String?
+  errorMessage     String?
+  chunkCount       Int              @default(0)
+  wordCount        Int              @default(0)
+  vectorId         String?          // legacy single-id field (retained)
+  vectorIds        Json?            // array of vector point ids in Qdrant
 
   metadata Json?
 
