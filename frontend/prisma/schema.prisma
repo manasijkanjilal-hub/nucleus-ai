@@ -101,6 +101,7 @@ model User {
   campaigns        Campaign[]         @relation("CampaignCreator")
   auditLogs        AuditLog[]
   notifications    Notification[]
+  aiGenerations    AIGeneration[]
 
   @@index([role])
   @@index([status])
@@ -135,8 +136,9 @@ model BrandProfile {
   updatedAt DateTime @updatedAt
 
   // Relations
-  campaigns Campaign[]
-  documents Document[]
+  campaigns     Campaign[]
+  documents     Document[]
+  aiGenerations AIGeneration[]
 
   @@index([userId])
   @@index([createdBy])
@@ -162,6 +164,9 @@ model Campaign {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Relations
+  aiGenerations AIGeneration[]
 
   @@index([brandId])
   @@index([createdBy])
@@ -266,4 +271,36 @@ model Notification {
 
   @@index([userId])
   @@index([read])
+}
+
+// -----------------------------------------------------------------------------
+// AIGeneration (AI content generation history)
+// -----------------------------------------------------------------------------
+
+model AIGeneration {
+  id               String  @id @default(uuid())
+  contentType      String
+  prompt           String  @db.Text
+  generatedContent String  @db.Text
+  provider         String  @default("openai")
+  model            String  @default("gpt-4o-mini")
+  tokensUsed       Int     @default(0)
+  cost             Decimal @default(0)
+
+  // Relations
+  brandId String
+  brand   BrandProfile @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  userId  String
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  campaignId String?
+  campaign   Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([brandId])
+  @@index([userId])
+  @@index([campaignId])
+  @@index([contentType])
+  @@index([createdAt])
 }
