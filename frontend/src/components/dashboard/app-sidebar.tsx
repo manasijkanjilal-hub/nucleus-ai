@@ -7,9 +7,10 @@ import {
   SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
+import { usePermissions } from '@/hooks/usePermissions';
 import {
   LayoutDashboard, Database, Sparkles, Megaphone, BarChart3,
-  Building2, Settings, LogOut, Zap,
+  Building2, Settings, LogOut, Zap, ShieldCheck,
 } from 'lucide-react';
 
 const navItems = [
@@ -24,6 +25,7 @@ const navItems = [
 
 export function AppSidebar() {
   const pathname = usePathname() ?? '';
+  const { isAtLeast } = usePermissions();
 
   return (
     <Sidebar>
@@ -51,6 +53,25 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {isAtLeast('ADMIN') && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Administration</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    render={<Link href="/admin/dashboard" />}
+                    isActive={pathname?.startsWith?.('/admin')}
+                  >
+                    <ShieldCheck className="h-4 w-4" />
+                    <span>Admin Panel</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
       <SidebarFooter className="border-t p-3">
         <Button

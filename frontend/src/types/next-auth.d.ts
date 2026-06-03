@@ -12,6 +12,7 @@ declare module 'next-auth' {
       image?: string | null;
       role: Role;
       status: UserStatus;
+      emailVerified?: boolean;
     };
   }
   interface User {
@@ -20,6 +21,9 @@ declare module 'next-auth' {
     name: string | null;
     role: Role;
     status: UserStatus;
+    emailVerified?: boolean;
+    sessionVersion?: number;
+    rememberMe?: boolean;
   }
 }
 
@@ -30,5 +34,8 @@ declare module 'next-auth/jwt' {
     name: string | null;
     role: Role;
     status: UserStatus;
+    emailVerified?: boolean;
+    sessionVersion?: number;
+    rememberMe?: boolean;
   }
 }

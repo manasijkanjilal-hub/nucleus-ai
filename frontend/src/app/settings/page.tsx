@@ -1,10 +1,12 @@
 'use client';
+import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { DashboardHeader } from '@/components/dashboard/dashboard-header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Settings, User, Globe } from 'lucide-react';
+import { User, Globe, ShieldCheck, ChevronRight } from 'lucide-react';
 
 export default function SettingsPage() {
   const { data: session } = useSession() || {};
@@ -30,6 +32,18 @@ export default function SettingsPage() {
               <Label>Email</Label>
               <Input value={session?.user?.email ?? ''} disabled className="max-w-md" />
             </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-4 w-4" />Security</CardTitle>
+            <CardDescription>Manage your password and active sessions</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button render={<Link href="/settings/password" />} variant="outline" className="gap-2">
+              Change password & sessions
+              <ChevronRight className="h-4 w-4" />
+            </Button>
           </CardContent>
         </Card>
         <Card>

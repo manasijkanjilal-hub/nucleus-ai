@@ -11,6 +11,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Public auth pages — always accessible (verification / password reset
+  // links must work even while signed out).
+  const publicAuthPages = ['/verify-email', '/forgot-password', '/reset-password'];
+  if (publicAuthPages.some((p) => pathname.startsWith(p))) {
+    return NextResponse.next();
+  }
+
   // Auth pages - redirect to dashboard if logged in
   if (pathname === '/login' || pathname === '/signup') {
     if (token) {

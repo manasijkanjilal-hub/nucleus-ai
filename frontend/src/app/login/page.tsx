@@ -12,6 +12,7 @@ import { Zap, Mail, Lock } from 'lucide-react';
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -24,10 +25,17 @@ export default function LoginPage() {
       const res = await signIn('credentials', {
         email,
         password,
+        rememberMe: rememberMe ? 'true' : 'false',
         redirect: false,
       });
       if (res?.error) {
-        setError('Invalid email or password');
+        // NextAuth surfaces our custom thrown messages (lockout / suspended)
+        // as the error string; fall back to a generic message otherwise.
+        const msg =
+          res.error && res.error !== 'CredentialsSignin'
+            ? res.error
+            : 'Invalid email or password';
+        setError(msg);
       } else {
         router.replace('/dashboard');
       }
@@ -87,6 +95,20 @@ export default function LoginPage() {
                     required
                   />
                 </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="h-4 w-4 rounded border-zinc-300 accent-zinc-900"
+                  />
+                  Remember me
+                </label>
+                <Link href="/forgot-password" className="text-sm font-medium text-foreground hover:underline">
+                  Forgot password?
+                </Link>
               </div>
               <Button type="submit" className="w-full h-10" disabled={loading}>
                 {loading ? 'Signing in...' : 'Sign in'}

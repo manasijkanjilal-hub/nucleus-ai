@@ -1,13 +1,11 @@
 'use client';
 import { useState } from 'react';
-import { signIn } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Zap, Mail, Lock, User } from 'lucide-react';
+import { Zap, Mail, Lock, User, MailCheck } from 'lucide-react';
 
 export default function SignupPage() {
   const [name, setName] = useState('');
@@ -15,7 +13,7 @@ export default function SignupPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
+  const [submitted, setSubmitted] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,18 +30,48 @@ export default function SignupPage() {
         setError(data?.error || 'Signup failed');
         return;
       }
-      const loginRes = await signIn('credentials', { email, password, redirect: false });
-      if (loginRes?.error) {
-        setError('Account created. Please login.');
-      } else {
-        router.replace('/dashboard');
-      }
+      // Account created — show the "check your email" confirmation screen.
+      setSubmitted(true);
     } catch {
       setError('Something went wrong');
     } finally {
       setLoading(false);
     }
   };
+
+  if (submitted) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-zinc-50 to-zinc-100 px-4">
+        <div className="w-full max-w-md space-y-6">
+          <div className="flex flex-col items-center gap-2">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-600 text-white">
+              <MailCheck className="h-6 w-6" />
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight">Check your email</h1>
+          </div>
+          <Card>
+            <CardContent className="pt-6 text-center space-y-4">
+              <p className="text-sm text-muted-foreground">
+                We&apos;ve sent a verification link to{' '}
+                <span className="font-medium text-foreground">{email}</span>. Click the link in
+                that email to activate your account.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Didn&apos;t get it? Check your spam folder or{' '}
+                <Link href="/verify-email" className="font-medium text-foreground hover:underline">
+                  resend the verification email
+                </Link>
+                .
+              </p>
+              <Button render={<Link href="/login" />} className="w-full h-10">
+                Back to sign in
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-zinc-50 to-zinc-100 px-4">

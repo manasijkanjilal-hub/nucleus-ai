@@ -86,6 +86,10 @@ model User {
   loginAttempts Int       @default(0)
   lockedUntil   DateTime?
 
+  // Session invalidation ("logout from all devices" increments this).
+  // Tokens carrying an older version are rejected by the JWT callback.
+  sessionVersion Int @default(0)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

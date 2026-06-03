@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { recordAudit } from '@/lib/audit';
+import { generateToken } from '@/lib/tokens';
+import { sendVerificationEmail, isEmailConfigured } from '@/lib/email';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -31,6 +33,7 @@ export async function POST(request: Request) {
     }
 
     const hashedPassword = await bcrypt.hash(password, 12);
+    const verificationToken = generateToken();
     const user = await prisma.user.create({
       data: {
         email: normalizedEmail,
@@ -38,9 +41,21 @@ export async function POST(request: Request) {
         name: name ? String(name).trim() : null,
         // New self-service signups default to the lowest-privilege role.
         role: 'VIEWER',
-        status: 'ACTIVE',
+        // Account starts unverified until the email link is confirmed.
+        status: 'PENDING_VERIFICATION',
+        emailVerified: false,
+        emailVerificationToken: verificationToken,
       },
     });
+
+    // Send the verification email (best-effort; logged in dev).
+    let emailSent = false;
+    try {
+      const res = await sendVerificationEmail(user.email, verificationToken);
+      emailSent = res.sent;
+    } catch (e) {
+      console.error('Failed to send verification email:', e);
+    }
 
     await recordAudit({
       userId: user.id,
@@ -52,7 +67,16 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json(
-      { id: user.id, email: user.email, name: user.name, role: user.role },
+      {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        message: 'Account created. Please check your email to verify your account.',
+        emailSent,
+        // In dev (no SMTP), surface the token so the flow can be tested.
+        ...(isEmailConfigured ? {} : { devVerificationToken: verificationToken }),
+      },
       { status: 201 }
     );
   } catch (error: any) {
