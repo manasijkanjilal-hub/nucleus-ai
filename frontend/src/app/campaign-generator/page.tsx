@@ -1,5 +1,6 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { DashboardHeader } from '@/components/dashboard/dashboard-header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -35,9 +36,15 @@ interface GenerationResponse {
   contextSnippetsUsed: number;
 }
 
-export default function CampaignGeneratorPage() {
+function CampaignGeneratorInner() {
   const { can } = usePermissions();
   const canGenerate = can('content:generate');
+  const searchParams = useSearchParams();
+
+  // Optional campaign context (when arriving from a campaign detail page).
+  const campaignId = searchParams?.get('campaignId') ?? '';
+  const campaignNameParam = searchParams?.get('campaignName') ?? '';
+  const brandIdParam = searchParams?.get('brandId') ?? '';
 
   const [brands, setBrands] = useState<any[]>([]);
   const [selectedBrand, setSelectedBrand] = useState('');
@@ -58,7 +65,11 @@ export default function CampaignGeneratorPage() {
       .then((d: any) => {
         const list = Array.isArray(d) ? d : [];
         setBrands(list);
-        if (list.length > 0) setSelectedBrand(list[0]?.id ?? '');
+        // Prefer the brand passed via query params (campaign context), else first.
+        const preferred = brandIdParam && list.some((b: any) => b?.id === brandIdParam)
+          ? brandIdParam
+          : (list[0]?.id ?? '');
+        if (preferred) setSelectedBrand(preferred);
       })
       .catch(() => {});
   }, []);
@@ -73,7 +84,12 @@ export default function CampaignGeneratorPage() {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ brandId: selectedBrand, contentType, additionalContext }),
+        body: JSON.stringify({
+          brandId: selectedBrand,
+          contentType,
+          additionalContext,
+          ...(campaignId ? { campaignId } : {}),
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || 'Generation failed');
@@ -152,6 +168,18 @@ export default function CampaignGeneratorPage() {
             Generate on-brand marketing content powered by AI and your Context Vault.
           </p>
         </div>
+
+        {/* ---- Campaign context banner ---- */}
+        {campaignId && (
+          <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+            <Sparkles className="h-4 w-4 shrink-0" />
+            <span>
+              Generating content for campaign
+              {campaignNameParam ? <strong className="mx-1">{campaignNameParam}</strong> : ' '}
+              — new content will be linked to it automatically.
+            </span>
+          </div>
+        )}
 
         {/* ---- Input form ---- */}
         <Card>
@@ -271,7 +299,13 @@ export default function CampaignGeneratorPage() {
                     )}
                   </div>
 
-                  {/* Save to campaign */}
+                  {/* Save to campaign — hidden when already linked to a campaign */}
+                  {campaignId ? (
+                    <div className="flex items-center gap-2 border-t pt-4 text-sm text-emerald-700">
+                      <Check className="h-4 w-4" />
+                      <span>Linked to campaign{campaignNameParam ? ` “${campaignNameParam}”` : ''}.</span>
+                    </div>
+                  ) : (
                   <div className="space-y-2 border-t pt-4">
                     <Label>Save to a new campaign</Label>
                     <div className="flex flex-wrap gap-2">
@@ -295,6 +329,7 @@ export default function CampaignGeneratorPage() {
                       </Button>
                     </div>
                   </div>
+                  )}
                 </>
               )}
             </CardContent>
@@ -302,5 +337,13 @@ export default function CampaignGeneratorPage() {
         )}
       </div>
     </>
+  );
+}
+
+export default function CampaignGeneratorPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading…</div>}>
+      <CampaignGeneratorInner />
+    </Suspense>
   );
 }
