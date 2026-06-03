@@ -1,3 +1,8 @@
+// =============================================================================
+// Nucleus AI — Prisma Schema
+// Phase 1: RBAC, enhanced models, Context Vault, audit logging, notifications
+// =============================================================================
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,33 +12,195 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String    @unique
-  password      String
-  image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  brandProfiles BrandProfile[]
-  documents     UploadedDocument[]
+// -----------------------------------------------------------------------------
+// Enums
+// -----------------------------------------------------------------------------
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  EDITOR
+  VIEWER
 }
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+enum DocumentType {
+  PDF
+  DOCX
+  TXT
+  WEB
+}
+
+enum ProcessingStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
+}
+
+// -----------------------------------------------------------------------------
+// User
+// -----------------------------------------------------------------------------
+
+model User {
+  id        String     @id @default(cuid())
+  name      String?
+  email     String     @unique
+  password  String
+  image     String?
+
+  // RBAC & account state
+  role      Role       @default(VIEWER)
+  status    UserStatus @default(ACTIVE)
+
+  // Email verification
+  emailVerified          Boolean   @default(false)
+  emailVerificationToken String?   @unique
+
+  // Password reset
+  passwordResetToken   String?   @unique
+  passwordResetExpires DateTime?
+
+  // Security / login tracking
+  lastLogin     DateTime?
+  loginAttempts Int       @default(0)
+  lockedUntil   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  brandProfiles    BrandProfile[]     @relation("BrandOwner")
+  createdBrands    BrandProfile[]     @relation("BrandCreator")
+  documents        UploadedDocument[]
+  contextDocuments Document[]         @relation("DocumentUploader")
+  campaigns        Campaign[]         @relation("CampaignCreator")
+  auditLogs        AuditLog[]
+  notifications    Notification[]
+
+  @@index([role])
+  @@index([status])
+}
+
+// -----------------------------------------------------------------------------
+// BrandProfile
+// -----------------------------------------------------------------------------
 
 model BrandProfile {
-  id              String   @id @default(cuid())
-  name            String
-  industry        String?
-  targetAudience  String?
-  brandVoice      String?
-  description     String?
-  logoUrl         String?
-  userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(cuid())
+  name           String
+  industry       String?
+  targetAudience String?
+  brandVoice     String?
+  description    String?
+  logoUrl        String?
+
+  // Enhanced fields
+  logo         String?
+  website      String?
+  brandColors  Json?
+  guidelines   String?
+
+  // Ownership
+  userId    String
+  user      User    @relation("BrandOwner", fields: [userId], references: [id], onDelete: Cascade)
+  createdBy String?
+  creator   User?   @relation("BrandCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  campaigns Campaign[]
+  documents Document[]
 
   @@index([userId])
+  @@index([createdBy])
 }
+
+// -----------------------------------------------------------------------------
+// Campaign
+// -----------------------------------------------------------------------------
+
+model Campaign {
+  id          String         @id @default(cuid())
+  name        String
+  description String?
+  type        String?
+  goals       String?
+  status      CampaignStatus @default(DRAFT)
+
+  // Ownership / relations
+  brandId   String
+  brand     BrandProfile @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  createdBy String?
+  creator   User?        @relation("CampaignCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([brandId])
+  @@index([createdBy])
+  @@index([status])
+}
+
+// -----------------------------------------------------------------------------
+// Document (Context Vault)
+// -----------------------------------------------------------------------------
+
+model Document {
+  id       String       @id @default(cuid())
+  name     String
+  type     DocumentType
+
+  filePath String?
+  fileSize Int?
+  mimeType String?
+
+  // Ownership / relations
+  brandId    String?
+  brand      BrandProfile? @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  uploadedBy String
+  uploader   User          @relation("DocumentUploader", fields: [uploadedBy], references: [id], onDelete: Cascade)
+
+  // Processing & embeddings
+  processingStatus ProcessingStatus @default(PENDING)
+  embeddingStatus  ProcessingStatus @default(PENDING)
+  vectorId         String?
+
+  metadata Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([brandId])
+  @@index([uploadedBy])
+  @@index([processingStatus])
+}
+
+// -----------------------------------------------------------------------------
+// UploadedDocument (legacy direct-upload flow — retained for compatibility)
+// -----------------------------------------------------------------------------
 
 model UploadedDocument {
   id               String   @id @default(cuid())
@@ -50,4 +217,44 @@ model UploadedDocument {
 
   @@index([userId])
   @@index([brandId])
+}
+
+// -----------------------------------------------------------------------------
+// AuditLog
+// -----------------------------------------------------------------------------
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  entity    String
+  entityId  String?
+  changes   Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([entity])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// -----------------------------------------------------------------------------
+// Notification
+// -----------------------------------------------------------------------------
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType @default(INFO)
+  title     String
+  message   String
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  @@index([userId])
+  @@index([read])
 }

@@ -1,14 +1,18 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth-options';
 import { prisma } from '@/lib/prisma';
+import { requirePermission } from '@/middleware/rbac';
+import { recordAudit } from '@/lib/audit';
 
 export async function POST(request: Request) {
+  const guard = await requirePermission('document:create');
+  if (!guard.authorized) return guard.response;
+  const { user } = guard;
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const { cloudStoragePath, isPublic, fileName, fileType, brandId } = await request.json();
+    if (!fileName) {
+      return NextResponse.json({ error: 'fileName is required' }, { status: 400 });
+    }
     const doc = await prisma.uploadedDocument.create({
       data: {
         fileName,
@@ -17,8 +21,16 @@ export async function POST(request: Request) {
         isPublic: isPublic ?? false,
         brandId: brandId || null,
         status: 'uploaded',
-        userId: session.user.id,
+        userId: user.id,
       },
+    });
+    await recordAudit({
+      userId: user.id,
+      action: 'document.upload',
+      entity: 'UploadedDocument',
+      entityId: doc.id,
+      changes: { fileName, brandId: brandId || null },
+      request,
     });
     return NextResponse.json(doc, { status: 201 });
   } catch (error: any) {
