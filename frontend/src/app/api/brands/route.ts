@@ -6,6 +6,7 @@ import { requirePermission } from '@/middleware/rbac';
 import { hasMinRole } from '@/lib/permissions';
 import { recordAudit } from '@/lib/audit';
 import { sanitizeText } from '@/lib/sanitize';
+import { checkBrandLimit, UsageLimitError } from '@/lib/usage-limits';
 
 const brandSchema = z.object({
   name: z.string().trim().min(1, 'Brand name is required').max(200),
@@ -72,6 +73,9 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+    // Enforce the plan's brand limit.
+    await checkBrandLimit(user.id);
+
     const data = cleanBrand(parsed.data);
     const brand = await prisma.brandProfile.create({
       data: {
@@ -90,6 +94,19 @@ export async function POST(request: Request) {
     });
     return NextResponse.json(brand, { status: 201 });
   } catch (error: any) {
+    if (error instanceof UsageLimitError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          upgradeRequired: true,
+          resource: error.resource,
+          plan: error.plan,
+          used: error.used,
+          limit: error.limit,
+        },
+        { status: 403 },
+      );
+    }
     console.error('Create brand error:', error);
     return NextResponse.json({ error: 'Failed to create brand' }, { status: 500 });
   }

@@ -24,6 +24,11 @@ import { sanitizeText } from '@/lib/sanitize';
 import { firstZodError } from '@/lib/validations/auth';
 import { rateLimit, rateLimitHeaders } from '@/lib/rate-limit';
 import {
+  checkGenerationLimit,
+  incrementGenerationUsage,
+  UsageLimitError,
+} from '@/lib/usage-limits';
+import {
   buildSystemPrompt,
   buildUserPrompt,
   isValidContentType,
@@ -116,6 +121,9 @@ export async function POST(request: Request) {
   const additionalContext = sanitizeText(parsed.data.additionalContext || '');
 
   try {
+    // 3b. Usage limit (monthly generation quota) -----------------------------
+    await checkGenerationLimit(user.id);
+
     // 4. Brand access check --------------------------------------------------
     const brand = await prisma.brandProfile.findUnique({ where: { id: brandId } });
     if (!brand) {
@@ -183,6 +191,9 @@ export async function POST(request: Request) {
       },
     });
 
+    // Count this generation against the monthly quota.
+    await incrementGenerationUsage(user.id);
+
     await recordAudit({
       userId: user.id,
       action: 'ai.generate',
@@ -212,6 +223,19 @@ export async function POST(request: Request) {
       { headers: rateLimitHeaders(rl) },
     );
   } catch (error: any) {
+    if (error instanceof UsageLimitError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          upgradeRequired: true,
+          resource: error.resource,
+          plan: error.plan,
+          used: error.used,
+          limit: error.limit,
+        },
+        { status: 403 },
+      );
+    }
     console.error('Generate error:', error);
     return NextResponse.json({ error: 'Content generation failed' }, { status: 500 });
   }

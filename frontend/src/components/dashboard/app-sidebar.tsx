@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { usePermissions } from '@/hooks/usePermissions';
 import {
   LayoutDashboard, Database, Sparkles, Megaphone, BarChart3,
-  Building2, Settings, LogOut, Zap, ShieldCheck,
+  Building2, Settings, LogOut, Zap, ShieldCheck, CreditCard,
 } from 'lucide-react';
 
 const navItems = [
@@ -20,6 +20,7 @@ const navItems = [
   { title: 'Campaigns', href: '/campaigns', icon: Megaphone },
   { title: 'Analytics', href: '/analytics', icon: BarChart3 },
   { title: 'Brand Profile', href: '/brand-profile', icon: Building2 },
+  { title: 'Billing', href: '/billing', icon: CreditCard },
   { title: 'Settings', href: '/settings', icon: Settings },
 ];
 

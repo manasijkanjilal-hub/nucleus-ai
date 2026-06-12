@@ -16,6 +16,7 @@ import { hasMinRole } from '@/lib/permissions';
 import { recordAudit } from '@/lib/audit';
 import { sanitizeText } from '@/lib/sanitize';
 import { firstZodError } from '@/lib/validations/auth';
+import { checkCampaignLimit, UsageLimitError } from '@/lib/usage-limits';
 
 const VALID_STATUS = ['DRAFT', 'ACTIVE', 'PAUSED', 'COMPLETED', 'ARCHIVED'] as const;
 
@@ -101,6 +102,9 @@ export async function POST(request: Request) {
       );
     }
 
+    // Enforce the plan's campaign limit.
+    await checkCampaignLimit(user.id);
+
     const campaign = await prisma.campaign.create({
       data: {
         name: sanitizeText(parsed.data.name),
@@ -124,6 +128,19 @@ export async function POST(request: Request) {
 
     return NextResponse.json(campaign, { status: 201 });
   } catch (error: any) {
+    if (error instanceof UsageLimitError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          upgradeRequired: true,
+          resource: error.resource,
+          plan: error.plan,
+          used: error.used,
+          limit: error.limit,
+        },
+        { status: 403 },
+      );
+    }
     console.error('Create campaign error:', error);
     return NextResponse.json({ error: 'Failed to create campaign' }, { status: 500 });
   }

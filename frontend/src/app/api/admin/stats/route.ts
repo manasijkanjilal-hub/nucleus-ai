@@ -11,6 +11,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from '@/middleware/rbac';
 import type { Role } from '@/lib/permissions';
+import { getPlan, PLAN_ORDER, type PlanId } from '@/lib/plans';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,6 +30,8 @@ export async function GET() {
       totalDocuments,
       recentAudit,
       recentUsers,
+      subsByPlan,
+      paidInvoices,
     ] = await Promise.all([
       prisma.user.count(),
       prisma.user.groupBy({ by: ['role'], _count: { _all: true } }),
@@ -47,7 +50,29 @@ export async function GET() {
         take: 30,
         select: { createdAt: true },
       }),
+      prisma.subscription.groupBy({
+        by: ['plan'],
+        where: { status: { in: ['ACTIVE', 'TRIALING'] } },
+        _count: { _all: true },
+      }),
+      prisma.invoice.aggregate({
+        where: { status: { in: ['paid', 'succeeded'] } },
+        _sum: { amount: true },
+      }),
     ]);
+
+    // Billing metrics ---------------------------------------------------------
+    const planActiveCounts: Record<string, number> = {};
+    for (const row of subsByPlan) planActiveCounts[row.plan] = row._count._all;
+    let mrr = 0;
+    let activeSubscriptions = 0;
+    for (const id of PLAN_ORDER) {
+      const count = planActiveCounts[id] ?? 0;
+      const price = getPlan(id as PlanId).price;
+      if (id !== 'FREE') activeSubscriptions += count;
+      if (price) mrr += price * count;
+    }
+    const totalRevenue = Number(paidInvoices._sum.amount ?? 0);
 
     // Normalise role counts
     const roleCounts: Record<Role, number> = {
@@ -113,6 +138,17 @@ export async function GET() {
         active: campaignStatusCounts.ACTIVE,
       },
       documents: { total: totalDocuments },
+      billing: {
+        mrr,
+        arr: mrr * 12,
+        totalRevenue,
+        activeSubscriptions,
+        byPlan: PLAN_ORDER.map((id) => ({
+          plan: id,
+          name: getPlan(id as PlanId).name,
+          activeCount: planActiveCounts[id] ?? 0,
+        })),
+      },
       signupTrend: trend,
       recentActivity: recentAudit.map((a) => ({
         id: a.id,

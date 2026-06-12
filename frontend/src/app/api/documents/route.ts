@@ -14,6 +14,8 @@ import {
 } from '@/lib/document-processor';
 import { saveFile } from '@/lib/document-storage';
 import { processDocumentPipeline } from '@/lib/document-pipeline';
+import { getUserLimits, countDocuments } from '@/lib/usage-limits';
+import { isUnlimited } from '@/lib/plans';
 import type { Prisma } from '@prisma/client';
 
 /**
@@ -122,10 +124,27 @@ export async function POST(req: Request) {
     }
   }
 
+  // Enforce the plan's document limit across the batch.
+  const docLimit = (await getUserLimits(user.id)).documents;
+  const docsUnlimited = isUnlimited(docLimit);
+  let docsUsed = docsUnlimited ? 0 : await countDocuments(user.id);
+
   const results: any[] = [];
 
   for (const file of files) {
     const displayName = safeDisplayName(file.name || 'untitled');
+
+    // Stop creating documents once the plan limit is reached.
+    if (!docsUnlimited && docsUsed >= docLimit) {
+      results.push({
+        fileName: displayName,
+        success: false,
+        upgradeRequired: true,
+        error: `You have reached your documents limit (${docsUsed}/${docLimit}). Upgrade your plan to upload more.`,
+      });
+      continue;
+    }
+
     try {
       const buffer = Buffer.from(await file.arrayBuffer());
       const validation = validateFile({
@@ -161,6 +180,7 @@ export async function POST(req: Request) {
           embeddingStatus: 'PENDING',
         },
       });
+      docsUsed += 1;
 
       await recordAudit({
         userId: user.id,

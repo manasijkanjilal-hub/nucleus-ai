@@ -12,7 +12,13 @@
  *   npx prisma db seed
  */
 
-import { PrismaClient, Role, UserStatus } from '@prisma/client';
+import {
+  PrismaClient,
+  Role,
+  UserStatus,
+  SubscriptionPlan,
+  SubscriptionStatus,
+} from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -22,6 +28,7 @@ interface SeedUser {
   email: string;
   password: string;
   role: Role;
+  plan: SubscriptionPlan;
 }
 
 const DEFAULT_USERS: SeedUser[] = [
@@ -30,26 +37,38 @@ const DEFAULT_USERS: SeedUser[] = [
     email: 'superadmin@nucleus-ai.com',
     password: 'SuperAdmin123!',
     role: Role.SUPER_ADMIN,
+    plan: SubscriptionPlan.ENTERPRISE,
   },
   {
     name: 'Admin',
     email: 'admin@nucleus-ai.com',
     password: 'admin123',
     role: Role.ADMIN,
+    plan: SubscriptionPlan.PRO,
   },
   {
     name: 'Demo Editor',
     email: 'editor@nucleus-ai.com',
     password: 'editor1234',
     role: Role.EDITOR,
+    plan: SubscriptionPlan.STARTER,
   },
   {
     name: 'Demo User',
     email: 'demo@nucleus-ai.com',
     password: 'demo1234',
     role: Role.VIEWER,
+    plan: SubscriptionPlan.FREE,
   },
 ];
+
+// Plan limits mirror src/lib/plans.ts (kept inline so the seed has no app deps).
+const PLAN_LIMITS: Record<SubscriptionPlan, { generations: number; brands: number }> = {
+  FREE: { generations: 10, brands: 1 },
+  STARTER: { generations: 100, brands: 3 },
+  PRO: { generations: -1, brands: 10 },
+  ENTERPRISE: { generations: -1, brands: -1 },
+};
 
 async function main() {
   console.log('🌱 Seeding Nucleus AI database …\n');
@@ -75,7 +94,28 @@ async function main() {
       },
     });
 
-    console.log(`  ✔ Upserted "${user.email}" (role: ${user.role})`);
+    // Give each seed user a subscription matching their role tier.
+    const limits = PLAN_LIMITS[userData.plan];
+    await prisma.subscription.upsert({
+      where: { userId: user.id },
+      update: {
+        plan: userData.plan,
+        status: SubscriptionStatus.ACTIVE,
+        generationsLimit: limits.generations,
+        brandsLimit: limits.brands,
+      },
+      create: {
+        userId: user.id,
+        plan: userData.plan,
+        status: SubscriptionStatus.ACTIVE,
+        generationsLimit: limits.generations,
+        brandsLimit: limits.brands,
+      },
+    });
+
+    console.log(
+      `  ✔ Upserted "${user.email}" (role: ${user.role}, plan: ${userData.plan})`,
+    );
   }
 
   // Create a sample brand profile for the super admin if none exists.

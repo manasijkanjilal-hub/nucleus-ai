@@ -19,6 +19,9 @@ import {
   Activity,
   Loader2,
   ShieldAlert,
+  DollarSign,
+  TrendingUp,
+  CreditCard,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -52,6 +55,13 @@ interface Stats {
   brands: { total: number };
   campaigns: { total: number; byStatus: Record<string, number>; active: number };
   documents: { total: number };
+  billing?: {
+    mrr: number;
+    arr: number;
+    totalRevenue: number;
+    activeSubscriptions: number;
+    byPlan: { plan: string; name: string; activeCount: number }[];
+  };
   signupTrend: { date: string; users: number }[];
   recentActivity: {
     id: string;
@@ -187,6 +197,40 @@ export default function AdminDashboardPage() {
           icon={FileText}
         />
       </div>
+
+      {/* Revenue cards */}
+      {stats.billing && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <MetricCard
+            title="Monthly Recurring Revenue"
+            value={`$${stats.billing.mrr.toLocaleString()}`}
+            icon={DollarSign}
+            hint={`$${stats.billing.arr.toLocaleString()} ARR`}
+          />
+          <MetricCard
+            title="Active Subscriptions"
+            value={stats.billing.activeSubscriptions}
+            icon={CreditCard}
+          />
+          <MetricCard
+            title="Total Revenue"
+            value={`$${stats.billing.totalRevenue.toLocaleString()}`}
+            icon={TrendingUp}
+            hint="From paid invoices"
+          />
+          <MetricCard
+            title="Paid Plans"
+            value={stats.billing.byPlan
+              .filter((p) => p.plan !== 'FREE')
+              .reduce((n, p) => n + p.activeCount, 0)}
+            icon={Users}
+            hint={stats.billing.byPlan
+              .filter((p) => p.plan !== 'FREE' && p.activeCount > 0)
+              .map((p) => `${p.name}: ${p.activeCount}`)
+              .join(' · ') || 'No paid plans yet'}
+          />
+        </div>
+      )}
 
       {/* Quick actions */}
       <Card>

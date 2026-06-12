@@ -63,19 +63,19 @@ enum NotificationType {
 // -----------------------------------------------------------------------------
 
 model User {
-  id        String     @id @default(cuid())
-  name      String?
-  email     String     @unique
-  password  String
-  image     String?
+  id       String  @id @default(cuid())
+  name     String?
+  email    String  @unique
+  password String
+  image    String?
 
   // RBAC & account state
-  role      Role       @default(VIEWER)
-  status    UserStatus @default(ACTIVE)
+  role   Role       @default(VIEWER)
+  status UserStatus @default(ACTIVE)
 
   // Email verification
-  emailVerified          Boolean   @default(false)
-  emailVerificationToken String?   @unique
+  emailVerified          Boolean @default(false)
+  emailVerificationToken String? @unique
 
   // Password reset
   passwordResetToken   String?   @unique
@@ -102,6 +102,8 @@ model User {
   auditLogs        AuditLog[]
   notifications    Notification[]
   aiGenerations    AIGeneration[]
+  subscription     Subscription?
+  invoices         Invoice[]
 
   @@index([role])
   @@index([status])
@@ -112,7 +114,7 @@ model User {
 // -----------------------------------------------------------------------------
 
 model BrandProfile {
-  id             String   @id @default(cuid())
+  id             String  @id @default(cuid())
   name           String
   industry       String?
   targetAudience String?
@@ -121,10 +123,10 @@ model BrandProfile {
   logoUrl        String?
 
   // Enhanced fields
-  logo         String?
-  website      String?
-  brandColors  Json?
-  guidelines   String?
+  logo        String?
+  website     String?
+  brandColors Json?
+  guidelines  String?
 
   // Ownership
   userId    String
@@ -179,8 +181,8 @@ model Campaign {
 
 model Document {
   id       String       @id @default(cuid())
-  name     String       // original (sanitized) display name
-  fileName String?      // stored file name on disk (UUID-based)
+  name     String // original (sanitized) display name
+  fileName String? // stored file name on disk (UUID-based)
   type     DocumentType
 
   filePath String?
@@ -199,8 +201,8 @@ model Document {
   errorMessage     String?
   chunkCount       Int              @default(0)
   wordCount        Int              @default(0)
-  vectorId         String?          // legacy single-id field (retained)
-  vectorIds        Json?            // array of vector point ids in Qdrant
+  vectorId         String? // legacy single-id field (retained)
+  vectorIds        Json? // array of vector point ids in Qdrant
 
   metadata Json?
 
@@ -303,4 +305,73 @@ model AIGeneration {
   @@index([campaignId])
   @@index([contentType])
   @@index([createdAt])
+}
+
+// -----------------------------------------------------------------------------
+// Billing & Subscriptions (Phase 3A)
+// -----------------------------------------------------------------------------
+
+enum SubscriptionPlan {
+  FREE
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  PAST_DUE
+  TRIALING
+  INCOMPLETE
+}
+
+model Subscription {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  plan   SubscriptionPlan   @default(FREE)
+  status SubscriptionStatus @default(ACTIVE)
+
+  // Stripe fields
+  stripeCustomerId     String? @unique
+  stripeSubscriptionId String? @unique
+  stripePriceId        String?
+
+  // Billing cycle
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  cancelAtPeriodEnd  Boolean   @default(false)
+  canceledAt         DateTime?
+
+  // Usage tracking
+  generationsUsed  Int @default(0)
+  generationsLimit Int @default(10)
+  brandsUsed       Int @default(0)
+  brandsLimit      Int @default(1)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([stripeCustomerId])
+  @@index([stripeSubscriptionId])
+}
+
+model Invoice {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  stripeInvoiceId String    @unique
+  amount          Decimal   @db.Decimal(10, 2)
+  currency        String    @default("usd")
+  status          String
+  paidAt          DateTime?
+  invoiceUrl      String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
