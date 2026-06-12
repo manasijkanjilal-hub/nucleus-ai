@@ -1,13 +1,14 @@
 'use client';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from './app-sidebar';
+import { PageTransition } from '@/components/ui/page-transition';
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset className="flex flex-col flex-1">
-        {children}
+        <PageTransition>{children}</PageTransition>
       </SidebarInset>
     </SidebarProvider>
   );

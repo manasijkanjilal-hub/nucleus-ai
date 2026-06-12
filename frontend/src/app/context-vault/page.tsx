@@ -46,6 +46,8 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import { motion, AnimatePresence } from 'framer-motion';
+import { EmptyState } from '@/components/ui/empty-state';
 import {
   Database,
   Upload,
@@ -481,13 +483,15 @@ export default function ContextVaultPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div
+              <motion.div
                 role="button"
                 tabIndex={0}
-                className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
+                animate={{ scale: dragOver ? 1.01 : 1 }}
+                transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                className={`group relative flex flex-col items-center justify-center overflow-hidden rounded-xl border-2 border-dashed p-8 text-center transition-colors ${
                   dragOver
                     ? 'border-primary bg-primary/5'
-                    : 'border-muted-foreground/25 hover:border-muted-foreground/50'
+                    : 'border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/30'
                 }`}
                 onDragOver={(e) => {
                   e.preventDefault();
@@ -497,8 +501,31 @@ export default function ContextVaultPage() {
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
               >
-                <Upload className="mb-2 h-8 w-8 text-muted-foreground" />
-                <p className="mb-1 text-sm font-medium">Drop files here or click to browse</p>
+                {/* Animated gradient glow on drag */}
+                <AnimatePresence>
+                  {dragOver && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 0.12 }}
+                      exit={{ opacity: 0 }}
+                      className="pointer-events-none absolute inset-0 bg-primary-gradient"
+                    />
+                  )}
+                </AnimatePresence>
+                <motion.div
+                  animate={dragOver ? { y: -4, scale: 1.1 } : { y: 0, scale: 1 }}
+                  transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                  className={`mb-3 flex h-12 w-12 items-center justify-center rounded-xl transition-colors ${
+                    dragOver
+                      ? 'bg-primary-gradient text-white shadow-[0_8px_24px_-6px_rgba(139,92,246,0.5)]'
+                      : 'bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary'
+                  }`}
+                >
+                  <Upload className="h-6 w-6" />
+                </motion.div>
+                <p className="mb-1 text-sm font-medium">
+                  {dragOver ? 'Release to upload' : 'Drop files here or click to browse'}
+                </p>
                 <p className="text-xs text-muted-foreground">
                   Supports multiple files · PDF, DOCX, TXT, MD
                 </p>
@@ -514,7 +541,7 @@ export default function ContextVaultPage() {
                     if (fileInputRef.current) fileInputRef.current.value = '';
                   }}
                 />
-              </div>
+              </motion.div>
 
               {/* Upload progress list */}
               {uploads.length > 0 && (
@@ -669,15 +696,15 @@ export default function ContextVaultPage() {
                 ))}
               </div>
             ) : !hasDocs ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Database className="mb-3 h-12 w-12 text-muted-foreground/50" />
-                <p className="text-sm font-medium">No documents yet</p>
-                <p className="text-xs text-muted-foreground">
-                  {canUpload
+              <EmptyState
+                icon={Database}
+                title="No documents yet"
+                description={
+                  canUpload
                     ? 'Upload your first document to get started.'
-                    : 'Documents uploaded to the vault will appear here.'}
-                </p>
-              </div>
+                    : 'Documents uploaded to the vault will appear here.'
+                }
+              />
             ) : (
               <div className="overflow-x-auto">
                 <Table>
@@ -693,7 +720,10 @@ export default function ContextVaultPage() {
                   </TableHeader>
                   <TableBody>
                     {documents.map((doc) => (
-                      <TableRow key={doc.id}>
+                      <TableRow
+                        key={doc.id}
+                        className="transition-colors hover:bg-muted/40"
+                      >
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-2">
                             <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />

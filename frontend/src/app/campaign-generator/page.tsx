@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { usePermissions } from '@/hooks/usePermissions';
 import { GradientButton } from '@/components/ui/button-gradient';
 import { fireConfetti } from '@/components/ui/animated/Confetti';
+import { Typewriter } from '@/components/ui/typewriter';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Sparkles, Loader2, Copy, Check, RefreshCw, Save, AlertCircle, Coins, Hash, Lock,
@@ -77,6 +78,7 @@ function CampaignGeneratorInner() {
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<GenerationResponse | null>(null);
   const [copied, setCopied] = useState(false);
+  const [revealDone, setRevealDone] = useState(false);
 
   const [campaignName, setCampaignName] = useState('');
   const [saving, setSaving] = useState(false);
@@ -123,6 +125,7 @@ function CampaignGeneratorInner() {
     setGenerating(true);
     setResult(null);
     setSaved(false);
+    setRevealDone(false);
     setCampaignName('');
     try {
       const res = await fetch('/api/generate', {
@@ -217,7 +220,7 @@ function CampaignGeneratorInner() {
 
         {/* ---- Campaign context banner ---- */}
         {campaignId && (
-          <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+          <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-200">
             <Sparkles className="h-4 w-4 shrink-0" />
             <span>
               Generating content for campaign
@@ -332,9 +335,37 @@ function CampaignGeneratorInner() {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <CardTitle>Generated content</CardTitle>
                 {result && (
-                  <Button variant="outline" size="sm" onClick={handleCopy}>
-                    {copied ? <Check className="mr-1 h-3.5 w-3.5" /> : <Copy className="mr-1 h-3.5 w-3.5" />}
-                    {copied ? 'Copied' : 'Copy'}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCopy}
+                    className={copied ? 'border-emerald-300 text-emerald-600' : ''}
+                  >
+                    <AnimatePresence mode="wait" initial={false}>
+                      {copied ? (
+                        <motion.span
+                          key="copied"
+                          initial={{ scale: 0.5, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={{ scale: 0.5, opacity: 0 }}
+                          transition={{ duration: 0.18 }}
+                          className="flex items-center"
+                        >
+                          <Check className="mr-1 h-3.5 w-3.5" />Copied
+                        </motion.span>
+                      ) : (
+                        <motion.span
+                          key="copy"
+                          initial={{ scale: 0.5, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={{ scale: 0.5, opacity: 0 }}
+                          transition={{ duration: 0.18 }}
+                          className="flex items-center"
+                        >
+                          <Copy className="mr-1 h-3.5 w-3.5" />Copy
+                        </motion.span>
+                      )}
+                    </AnimatePresence>
                   </Button>
                 )}
               </div>
@@ -359,22 +390,31 @@ function CampaignGeneratorInner() {
                   className="space-y-4"
                 >
                   {result.mocked && (
-                    <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+                    <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
                       <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                       <span>
                         Generated in mock mode — no OpenAI API key is configured. Add
-                        <code className="mx-1 rounded bg-amber-100 px-1">OPENAI_API_KEY</code>
+                        <code className="mx-1 rounded bg-amber-100 px-1 dark:bg-amber-900/50">OPENAI_API_KEY</code>
                         to produce live AI content.
                       </span>
                     </div>
                   )}
 
                   <div className="prose prose-sm max-w-none whitespace-pre-wrap rounded-lg bg-muted/50 p-4 text-sm leading-relaxed">
-                    {result.content}
+                    <Typewriter
+                      text={result.content}
+                      speed={4}
+                      onDone={() => setRevealDone(true)}
+                    />
                   </div>
 
-                  {/* Token / cost metadata */}
-                  <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+                  {/* Token / cost metadata — revealed after the typewriter finishes */}
+                  <motion.div
+                    className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: revealDone ? 1 : 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
                     <span className="inline-flex items-center gap-1">
                       <Hash className="h-3.5 w-3.5" />{result.tokensUsed.toLocaleString()} tokens
                     </span>
@@ -388,11 +428,11 @@ function CampaignGeneratorInner() {
                     {result.contextSnippetsUsed > 0 && (
                       <span>{result.contextSnippetsUsed} context snippet(s) used</span>
                     )}
-                  </div>
+                  </motion.div>
 
                   {/* Save to campaign — hidden when already linked to a campaign */}
                   {campaignId ? (
-                    <div className="flex items-center gap-2 border-t pt-4 text-sm text-emerald-700">
+                    <div className="flex items-center gap-2 border-t pt-4 text-sm text-emerald-700 dark:text-emerald-300">
                       <Check className="h-4 w-4" />
                       <span>Linked to campaign{campaignNameParam ? ` “${campaignNameParam}”` : ''}.</span>
                     </div>

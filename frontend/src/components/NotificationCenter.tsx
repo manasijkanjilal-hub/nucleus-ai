@@ -9,6 +9,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Bell, CheckCheck, Loader2 } from 'lucide-react';
 import { Popover } from '@base-ui/react/popover';
+import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 interface NotificationItem {
@@ -96,14 +97,23 @@ export function NotificationCenter() {
       >
         <Bell className="h-4 w-4" />
         {unread > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-none text-white">
-            {unread > 9 ? '9+' : unread}
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500/70" />
+            <span className="relative flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-none text-white">
+              {unread > 9 ? '9+' : unread}
+            </span>
           </span>
         )}
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Positioner side="bottom" align="end" sideOffset={8}>
-          <Popover.Popup className="z-50 w-80 max-w-[calc(100vw-2rem)] origin-[var(--transform-origin)] rounded-lg border bg-popover text-popover-foreground shadow-lg outline-none">
+          <Popover.Popup className="z-50 w-80 max-w-[calc(100vw-2rem)] origin-[var(--transform-origin)] rounded-lg border bg-popover text-popover-foreground shadow-lg outline-none" render={
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: -8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+            />
+          }>
             <div className="flex items-center justify-between border-b px-4 py-3">
               <span className="text-sm font-semibold">Notifications</span>
               {unread > 0 && (
