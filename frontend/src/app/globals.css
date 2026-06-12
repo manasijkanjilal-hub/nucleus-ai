@@ -247,11 +247,77 @@
   animation: nucleus-shimmer 2s linear infinite;
 }
 
+/* =============================================================================
+   Landing page — extra animations & utilities
+   ========================================================================== */
+@keyframes nucleus-blob {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -40px) scale(1.1); }
+  66% { transform: translate(-25px, 25px) scale(0.95); }
+}
+@keyframes nucleus-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-16px); }
+}
+@keyframes nucleus-float-slow {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-24px) rotate(3deg); }
+}
+@keyframes nucleus-aurora {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+@keyframes nucleus-particle-drift {
+  0% { transform: translateY(0) translateX(0); opacity: 0; }
+  10% { opacity: var(--p-opacity, 0.5); }
+  90% { opacity: var(--p-opacity, 0.5); }
+  100% { transform: translateY(-120px) translateX(var(--p-drift, 20px)); opacity: 0; }
+}
+
+.animate-blob { animation: nucleus-blob 18s ease-in-out infinite; }
+.animate-float { animation: nucleus-float 6s ease-in-out infinite; }
+.animate-float-slow { animation: nucleus-float-slow 9s ease-in-out infinite; }
+
+/* Smooth in-page scrolling for anchor navigation */
+html { scroll-behavior: smooth; }
+
+/* Animated aurora / mesh gradient for hero backdrops */
+.bg-aurora {
+  background: linear-gradient(
+    120deg,
+    rgba(99, 102, 241, 0.18),
+    rgba(139, 92, 246, 0.16),
+    rgba(6, 182, 212, 0.16),
+    rgba(59, 130, 246, 0.18)
+  );
+  background-size: 300% 300%;
+  animation: nucleus-aurora 18s ease infinite;
+}
+
+/* Full hero gradient text that pans */
+.text-gradient-animated {
+  background-image: linear-gradient(135deg, #6366f1, #8b5cf6, #06b6d4, #6366f1);
+  background-size: 250% 250%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: nucleus-gradient-pan 6s ease infinite;
+}
+
+/* Soft glow used on hero CTAs and popular pricing card */
+.glow-primary { box-shadow: 0 10px 40px -10px rgba(139, 92, 246, 0.55); }
+
 @media (prefers-reduced-motion: reduce) {
   .animate-fade-in,
   .animate-slide-up,
   .animate-scale-in,
   .animate-shake,
   .animate-pulse-glow,
+  .animate-blob,
+  .animate-float,
+  .animate-float-slow,
+  .bg-aurora,
+  .text-gradient-animated,
   .shimmer { animation: none !important; }
 }
