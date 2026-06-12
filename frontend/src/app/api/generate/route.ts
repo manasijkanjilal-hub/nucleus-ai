@@ -26,8 +26,10 @@ import { rateLimit, rateLimitHeaders } from '@/lib/rate-limit';
 import {
   checkGenerationLimit,
   incrementGenerationUsage,
+  getUsageSummary,
   UsageLimitError,
 } from '@/lib/usage-limits';
+import { notifyGenerationComplete, notifyLimitWarning } from '@/lib/notifications';
 import {
   buildSystemPrompt,
   buildUserPrompt,
@@ -193,6 +195,31 @@ export async function POST(request: Request) {
 
     // Count this generation against the monthly quota.
     await incrementGenerationUsage(user.id);
+
+    // Notifications (best-effort — never block or fail the response).
+    try {
+      const contentTypeLabel = getContentType(contentType)?.label ?? contentType;
+      await notifyGenerationComplete(user.id, {
+        id: record.id,
+        contentType,
+        contentTypeLabel,
+      });
+
+      // Usage warning: notify at 80%+ (approaching) and 100% (reached).
+      const summary = await getUsageSummary(user.id);
+      const gen = summary.generations;
+      if (!gen.unlimited && gen.percent >= 80) {
+        await notifyLimitWarning(user.id, {
+          resource: 'generations',
+          used: gen.used,
+          limit: gen.limit,
+          percent: gen.percent,
+          plan: summary.plan,
+        });
+      }
+    } catch (e) {
+      console.error('[generate] notification step failed:', e);
+    }
 
     await recordAudit({
       userId: user.id,

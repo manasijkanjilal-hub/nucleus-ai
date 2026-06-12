@@ -20,6 +20,7 @@ import {
   LogOut,
   Loader2,
   CreditCard,
+  Settings,
 } from 'lucide-react';
 
 import { usePermissions } from '@/hooks/usePermissions';
@@ -39,6 +40,7 @@ const adminNav = [
   { title: 'Users', href: '/admin/users', icon: Users },
   { title: 'Brands', href: '/admin/brands', icon: Building2 },
   { title: 'Billing', href: '/admin/billing', icon: CreditCard },
+  { title: 'Settings', href: '/admin/settings', icon: Settings },
 ];
 
 function initialsFromName(name?: string | null, email?: string | null): string {

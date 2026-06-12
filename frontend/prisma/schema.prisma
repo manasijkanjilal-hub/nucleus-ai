@@ -52,6 +52,12 @@ enum ProcessingStatus {
 }
 
 enum NotificationType {
+  WELCOME
+  PASSWORD_RESET
+  GENERATION_COMPLETE
+  LIMIT_WARNING
+  CAMPAIGN_STATUS
+  SYSTEM_ANNOUNCEMENT
   INFO
   SUCCESS
   WARNING
@@ -89,6 +95,9 @@ model User {
   // Session invalidation ("logout from all devices" increments this).
   // Tokens carrying an older version are rejected by the JWT callback.
   sessionVersion Int @default(0)
+
+  // Notification preferences (in-app is always on; this gates email delivery).
+  emailNotifications Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -267,10 +276,12 @@ model Notification {
   user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   type      NotificationType @default(INFO)
   title     String
-  message   String
+  message   String           @db.Text
   read      Boolean          @default(false)
+  metadata  Json?            // extra structured data (e.g. links, ids)
   createdAt DateTime         @default(now())
 
+  @@index([userId, read])
   @@index([userId])
   @@index([read])
 }

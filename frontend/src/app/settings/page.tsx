@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { User, Globe, ShieldCheck, ChevronRight } from 'lucide-react';
+import { User, Globe, ShieldCheck, ChevronRight, Bell } from 'lucide-react';
 
 export default function SettingsPage() {
   const { data: session } = useSession() || {};
@@ -42,6 +42,18 @@ export default function SettingsPage() {
           <CardContent>
             <Button render={<Link href="/settings/password" />} variant="outline" className="gap-2">
               Change password & sessions
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Bell className="h-4 w-4" />Notifications</CardTitle>
+            <CardDescription>Choose which email notifications you receive</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button render={<Link href="/settings/notifications" />} variant="outline" className="gap-2">
+              Manage notification preferences
               <ChevronRight className="h-4 w-4" />
             </Button>
           </CardContent>

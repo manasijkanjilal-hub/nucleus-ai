@@ -7,6 +7,7 @@ import { generateToken } from '@/lib/tokens';
 import { sendVerificationEmail, isEmailConfigured } from '@/lib/email';
 import { signupSchema, firstZodError } from '@/lib/validations/auth';
 import { sanitizeText } from '@/lib/sanitize';
+import { notifyWelcome } from '@/lib/notifications';
 
 export async function POST(request: Request) {
   try {
@@ -55,6 +56,9 @@ export async function POST(request: Request) {
     } catch (e) {
       console.error('Failed to send verification email:', e);
     }
+
+    // Welcome notification (in-app + welcome email). Best-effort, never throws.
+    await notifyWelcome(user.id, user.email, user.name);
 
     await recordAudit({
       userId: user.id,
