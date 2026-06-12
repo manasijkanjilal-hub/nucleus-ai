@@ -37,7 +37,8 @@ import {
   getContentType,
   type BrandContext,
 } from '@/lib/prompts';
-import { generateContent } from '@/lib/openai-client';
+import { generateWithFallback, isProviderName } from '@/lib/ai-providers/factory';
+import { getGenerationOrder, resolveProvider } from '@/lib/ai-providers/provider-config';
 
 const GENERATE_LIMIT = 50; // generations per hour
 const GENERATE_WINDOW_MS = 60 * 60 * 1000;
@@ -51,6 +52,9 @@ const generateSchema = z.object({
     .refine(isValidContentType, 'Unsupported content type'),
   additionalContext: z.string().trim().max(5000).optional().default(''),
   campaignId: z.string().trim().min(1).optional().nullable(),
+  // Provider: 'auto' (default, with fallback), or a specific provider name.
+  provider: z.string().trim().min(1).optional().default('auto'),
+  model: z.string().trim().min(1).optional(),
 });
 
 /**
@@ -121,6 +125,13 @@ export async function POST(request: Request) {
   }
   const { brandId, contentType, campaignId } = parsed.data;
   const additionalContext = sanitizeText(parsed.data.additionalContext || '');
+  // Provider selection: 'auto' (default) tries the platform default then
+  // falls back; a specific name forces that provider first (still with fallback).
+  const requestedProvider = parsed.data.provider || 'auto';
+  if (requestedProvider !== 'auto' && !isProviderName(requestedProvider)) {
+    return NextResponse.json({ error: 'Unknown AI provider' }, { status: 400 });
+  }
+  const requestedModel = parsed.data.model;
 
   try {
     // 3b. Usage limit (monthly generation quota) -----------------------------
@@ -166,9 +177,17 @@ export async function POST(request: Request) {
     const systemPrompt = buildSystemPrompt(contentType, brandContext, snippets);
     const userPrompt = buildUserPrompt(contentType, additionalContext);
 
+    // Determine provider order (DB-aware: respects enabled flags, default, keys).
+    const { primary, fallbacks } = await getGenerationOrder(requestedProvider);
+
     let generation;
     try {
-      generation = await generateContent({ systemPrompt, userPrompt });
+      generation = await generateWithFallback(
+        { prompt: userPrompt, systemPrompt, model: requestedModel },
+        primary,
+        fallbacks,
+        resolveProvider, // DB-aware resolver (key overrides + env fallback)
+      );
     } catch (err: any) {
       const status = typeof err?.status === 'number' ? err.status : 502;
       return NextResponse.json(
@@ -185,7 +204,7 @@ export async function POST(request: Request) {
         generatedContent: generation.content,
         provider: generation.provider,
         model: generation.model,
-        tokensUsed: generation.totalTokens,
+        tokensUsed: generation.tokensUsed,
         cost: generation.cost,
         brandId,
         userId: user.id,
@@ -226,7 +245,7 @@ export async function POST(request: Request) {
       action: 'ai.generate',
       entity: 'AIGeneration',
       entityId: record.id,
-      changes: { contentType, brandId, tokensUsed: generation.totalTokens },
+      changes: { contentType, brandId, tokensUsed: generation.tokensUsed },
       request,
     });
 
@@ -239,7 +258,7 @@ export async function POST(request: Request) {
         content: generation.content,
         provider: generation.provider,
         model: generation.model,
-        tokensUsed: generation.totalTokens,
+        tokensUsed: generation.tokensUsed,
         promptTokens: generation.promptTokens,
         completionTokens: generation.completionTokens,
         cost: generation.cost,

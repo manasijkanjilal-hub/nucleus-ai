@@ -29,12 +29,28 @@ interface GenerationResponse {
   id: string;
   contentTypeLabel: string;
   content: string;
+  provider?: string;
   model: string;
   tokensUsed: number;
   cost: number;
   mocked: boolean;
   contextSnippetsUsed: number;
 }
+
+interface ProviderOption {
+  name: string;
+  label: string;
+  defaultModel: string;
+  models: { id: string; label: string; inputPer1M: number; outputPer1M: number }[];
+  isDefault: boolean;
+}
+
+// Display labels for providers (used to render the selected provider in results).
+const PROVIDER_LABELS: Record<string, string> = {
+  openai: 'OpenAI',
+  gemini: 'Google Gemini',
+  claude: 'Anthropic Claude',
+};
 
 function CampaignGeneratorInner() {
   const { can } = usePermissions();
@@ -50,6 +66,10 @@ function CampaignGeneratorInner() {
   const [selectedBrand, setSelectedBrand] = useState('');
   const [contentType, setContentType] = useState('google_ads');
   const [additionalContext, setAdditionalContext] = useState('');
+
+  // AI provider selection ('auto' = platform default with automatic fallback).
+  const [providers, setProviders] = useState<ProviderOption[]>([]);
+  const [provider, setProvider] = useState('auto');
 
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<GenerationResponse | null>(null);
@@ -72,7 +92,28 @@ function CampaignGeneratorInner() {
         if (preferred) setSelectedBrand(preferred);
       })
       .catch(() => {});
+
+    // Load selectable AI providers (only enabled + configured ones appear).
+    fetch('/api/providers')
+      .then((r: any) => r?.json?.())
+      .then((d: any) => {
+        const list = Array.isArray(d?.providers) ? d.providers : [];
+        setProviders(list);
+      })
+      .catch(() => {});
   }, []);
+
+  // Pricing hint for the currently selected provider (default model).
+  const selectedProvider = providers.find((p) => p.name === provider);
+  const pricingHint = (() => {
+    if (provider === 'auto') {
+      return 'Automatically uses the platform default and falls back to other configured providers if it fails.';
+    }
+    const m = selectedProvider?.models?.find((x) => x.id === selectedProvider.defaultModel)
+      ?? selectedProvider?.models?.[0];
+    if (!m) return null;
+    return `${m.label}: $${m.inputPer1M}/1M input · $${m.outputPer1M}/1M output tokens`;
+  })();
 
   const handleGenerate = async () => {
     if (!selectedBrand) { toast.error('Please select a brand'); return; }
@@ -88,6 +129,7 @@ function CampaignGeneratorInner() {
           brandId: selectedBrand,
           contentType,
           additionalContext,
+          provider,
           ...(campaignId ? { campaignId } : {}),
         }),
       });
@@ -221,6 +263,30 @@ function CampaignGeneratorInner() {
             </div>
 
             <div className="space-y-2">
+              <Label>AI provider</Label>
+              <select
+                className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
+                value={provider}
+                onChange={(e: any) => setProvider(e.target?.value ?? 'auto')}
+              >
+                <option value="auto">Auto (with fallback)</option>
+                {providers.map((p) => (
+                  <option key={p.name} value={p.name}>
+                    {p.label}{p.isDefault ? ' (default)' : ''}
+                  </option>
+                ))}
+              </select>
+              {pricingHint && (
+                <p className="text-xs text-muted-foreground">{pricingHint}</p>
+              )}
+              {providers.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  No providers configured yet — generation falls back to mock mode.
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
               <Label>Additional context (optional)</Label>
               <Textarea
                 value={additionalContext}
@@ -293,6 +359,9 @@ function CampaignGeneratorInner() {
                     <span className="inline-flex items-center gap-1">
                       <Coins className="h-3.5 w-3.5" />${Number(result.cost).toFixed(6)}
                     </span>
+                    {result.provider && (
+                      <span>Provider: {PROVIDER_LABELS[result.provider] ?? result.provider}</span>
+                    )}
                     <span>Model: {result.model}</span>
                     {result.contextSnippetsUsed > 0 && (
                       <span>{result.contextSnippetsUsed} context snippet(s) used</span>

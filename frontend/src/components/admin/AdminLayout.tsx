@@ -21,6 +21,7 @@ import {
   Loader2,
   CreditCard,
   Settings,
+  Bot,
 } from 'lucide-react';
 
 import { usePermissions } from '@/hooks/usePermissions';
@@ -40,6 +41,7 @@ const adminNav = [
   { title: 'Users', href: '/admin/users', icon: Users },
   { title: 'Brands', href: '/admin/brands', icon: Building2 },
   { title: 'Billing', href: '/admin/billing', icon: CreditCard },
+  { title: 'AI Providers', href: '/admin/ai-providers', icon: Bot },
   { title: 'Settings', href: '/admin/settings', icon: Settings },
 ];
 

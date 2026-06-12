@@ -172,6 +172,49 @@ export default function AnalyticsPage() {
           </Card>
         </div>
 
+        {/* Generation by AI provider — cost & usage comparison */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Generation by AI Provider</CardTitle>
+            <CardDescription>
+              Usage and cost comparison across AI providers (success rate is 100% —
+              only successful generations are recorded)
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {usageLoading ? (
+              <div className="h-32 animate-pulse rounded bg-muted" />
+            ) : (usage?.byProvider?.length ?? 0) === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">No provider usage yet.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Provider</TableHead>
+                    <TableHead className="text-right">Generations</TableHead>
+                    <TableHead className="text-right">Tokens</TableHead>
+                    <TableHead className="text-right">Cost</TableHead>
+                    <TableHead className="text-right">Avg cost/gen</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {usage.byProvider.map((p: any) => (
+                    <TableRow key={p.provider}>
+                      <TableCell><Badge variant="secondary">{p.label ?? p.provider}</Badge></TableCell>
+                      <TableCell className="text-right text-sm">{Number(p.generations ?? 0).toLocaleString()}</TableCell>
+                      <TableCell className="text-right text-sm">{Number(p.tokensUsed ?? 0).toLocaleString()}</TableCell>
+                      <TableCell className="text-right text-sm">${Number(p.cost ?? 0).toFixed(4)}</TableCell>
+                      <TableCell className="text-right text-sm text-muted-foreground">
+                        ${p.generations > 0 ? (Number(p.cost ?? 0) / p.generations).toFixed(6) : '0.000000'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+
         {/* ================= Attribution Analytics (backend) ================= */}
         <div className="pt-2">
           <h2 className="text-2xl font-bold tracking-tight">Attribution Analytics</h2>

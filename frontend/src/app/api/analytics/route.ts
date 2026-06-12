@@ -17,6 +17,12 @@ import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/middleware/rbac';
 import { hasMinRole } from '@/lib/permissions';
 
+const PROVIDER_LABELS: Record<string, string> = {
+  openai: 'OpenAI',
+  gemini: 'Google Gemini',
+  claude: 'Anthropic Claude',
+};
+
 export async function GET() {
   const guard = await requireAuth();
   if (!guard.authorized) return guard.response;
@@ -31,7 +37,7 @@ export async function GET() {
     const genWhere = isAdmin ? {} : { brand: { userId: user.id } };
     const brandWhere = isAdmin ? {} : { userId: user.id };
 
-    const [campaignCount, generationCount, genAgg, recent, brandIds] =
+    const [campaignCount, generationCount, genAgg, recent, brandIds, providerGroups] =
       await Promise.all([
         prisma.campaign.count({ where: campaignWhere }),
         prisma.aIGeneration.count({ where: genWhere }),
@@ -56,6 +62,14 @@ export async function GET() {
           _sum: { tokensUsed: true, cost: true },
           orderBy: { _count: { brandId: 'desc' } },
           take: 5,
+        }),
+        // Group generations by AI provider for the provider comparison.
+        prisma.aIGeneration.groupBy({
+          by: ['provider'],
+          where: genWhere,
+          _count: { _all: true },
+          _sum: { tokensUsed: true, cost: true },
+          orderBy: { _count: { provider: 'desc' } },
         }),
       ]);
 
@@ -92,6 +106,15 @@ export async function GET() {
         generations: b._count._all,
         tokensUsed: b._sum.tokensUsed ?? 0,
         cost: Number(b._sum.cost ?? 0),
+      })),
+      // Per-provider comparison (generations, tokens, cost). Success rate is
+      // 100% because only successful generations are persisted.
+      byProvider: providerGroups.map((p) => ({
+        provider: p.provider,
+        label: PROVIDER_LABELS[p.provider] ?? p.provider,
+        generations: p._count._all,
+        tokensUsed: p._sum.tokensUsed ?? 0,
+        cost: Number(p._sum.cost ?? 0),
       })),
     });
   } catch (error: any) {
