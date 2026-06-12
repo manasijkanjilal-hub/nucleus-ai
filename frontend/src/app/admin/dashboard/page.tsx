@@ -22,6 +22,11 @@ import {
   DollarSign,
   TrendingUp,
   CreditCard,
+  Database,
+  Server,
+  AlertTriangle,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -73,6 +78,15 @@ interface Stats {
   }[];
 }
 
+interface Health {
+  overall: 'healthy' | 'degraded';
+  database: { status: 'ok' | 'error'; latencyMs: number | null };
+  backendApi: { status: 'ok' | 'error' | 'unknown' };
+  activeUsers: number;
+  recentErrors: number;
+  checkedAt: string;
+}
+
 const ROLE_COLORS: Record<string, string> = {
   SUPER_ADMIN: '#7c3aed',
   ADMIN: '#2563eb',
@@ -109,8 +123,51 @@ function MetricCard({
   );
 }
 
+function HealthCard({
+  title,
+  value,
+  icon: Icon,
+  status,
+  hint,
+}: {
+  title: string;
+  value: string;
+  icon: React.ElementType;
+  status: 'ok' | 'warn' | 'error';
+  hint?: string;
+}) {
+  const tone =
+    status === 'ok'
+      ? 'text-emerald-600'
+      : status === 'warn'
+        ? 'text-amber-600'
+        : 'text-destructive';
+  const StatusIcon =
+    status === 'ok' ? CheckCircle2 : status === 'warn' ? AlertTriangle : XCircle;
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">
+          {title}
+        </CardTitle>
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted">
+          <Icon className="h-4 w-4 text-foreground" />
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className={`flex items-center gap-1.5 text-lg font-bold ${tone}`}>
+          <StatusIcon className="h-4 w-4" />
+          {value}
+        </div>
+        {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
+  const [health, setHealth] = useState<Health | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -129,6 +186,23 @@ export default function AdminDashboardPage() {
         if (active) setError(e?.message ?? 'Failed to load stats');
       } finally {
         if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const res = await fetch('/api/admin/health');
+        if (!res.ok) return;
+        const data = (await res.json()) as Health;
+        if (active) setHealth(data);
+      } catch {
+        /* best-effort */
       }
     })();
     return () => {
@@ -169,6 +243,55 @@ export default function AdminDashboardPage() {
           Platform overview and key metrics.
         </p>
       </div>
+
+      {/* System health */}
+      {health && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <HealthCard
+            title="Database"
+            value={health.database.status === 'ok' ? 'Connected' : 'Error'}
+            icon={Database}
+            status={health.database.status === 'ok' ? 'ok' : 'error'}
+            hint={
+              health.database.latencyMs != null
+                ? `${health.database.latencyMs}ms latency`
+                : undefined
+            }
+          />
+          <HealthCard
+            title="Backend API"
+            value={
+              health.backendApi.status === 'ok'
+                ? 'Healthy'
+                : health.backendApi.status === 'error'
+                  ? 'Unreachable'
+                  : 'Unknown'
+            }
+            icon={Server}
+            status={
+              health.backendApi.status === 'ok'
+                ? 'ok'
+                : health.backendApi.status === 'error'
+                  ? 'error'
+                  : 'warn'
+            }
+          />
+          <HealthCard
+            title="Active Users"
+            value={String(health.activeUsers)}
+            icon={Activity}
+            status="ok"
+            hint="Currently active accounts"
+          />
+          <HealthCard
+            title="Recent Errors"
+            value={String(health.recentErrors)}
+            icon={AlertTriangle}
+            status={health.recentErrors > 0 ? 'warn' : 'ok'}
+            hint="Last 24 hours"
+          />
+        </div>
+      )}
 
       {/* Metric cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

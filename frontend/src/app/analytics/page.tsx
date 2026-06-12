@@ -7,7 +7,10 @@ import { Badge } from '@/components/ui/badge';
 import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from '@/components/ui/table';
-import { DollarSign, TrendingUp, Users, Target, BarChart3, Megaphone, Sparkles, Hash, Coins } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { DollarSign, TrendingUp, Users, Target, BarChart3, Megaphone, Sparkles, Hash, Coins, Download, FileSpreadsheet } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { exportToCSV, exportToExcel, type ExportRow } from '@/lib/exports';
 
 const CONTENT_LABELS: Record<string, string> = {
   google_ads: 'Google Ads', facebook_ads: 'Facebook Ads', instagram_post: 'Instagram Post',
@@ -18,6 +21,16 @@ const CONTENT_LABELS: Record<string, string> = {
 const RevenueChart = dynamic(() => import('@/components/dashboard/analytics-charts').then((m: any) => m.RevenueChart) as any, { ssr: false, loading: () => <div className="h-64 animate-pulse bg-muted rounded" /> }) as any;
 const SpendByChannelChart = dynamic(() => import('@/components/dashboard/analytics-charts').then((m: any) => m.SpendByChannelChart) as any, { ssr: false, loading: () => <div className="h-64 animate-pulse bg-muted rounded" /> }) as any;
 const TopCampaignsChart = dynamic(() => import('@/components/dashboard/analytics-charts').then((m: any) => m.TopCampaignsChart) as any, { ssr: false, loading: () => <div className="h-64 animate-pulse bg-muted rounded" /> }) as any;
+const GenerationTrendChart = dynamic(() => import('@/components/dashboard/analytics-charts').then((m: any) => m.GenerationTrendChart) as any, { ssr: false, loading: () => <div className="h-64 animate-pulse bg-muted rounded" /> }) as any;
+const ContentTypeChart = dynamic(() => import('@/components/dashboard/analytics-charts').then((m: any) => m.ContentTypeChart) as any, { ssr: false, loading: () => <div className="h-64 animate-pulse bg-muted rounded" /> }) as any;
+const CostByProviderChart = dynamic(() => import('@/components/dashboard/analytics-charts').then((m: any) => m.CostByProviderChart) as any, { ssr: false, loading: () => <div className="h-64 animate-pulse bg-muted rounded" /> }) as any;
+
+const RANGES = [
+  { value: '7', label: 'Last 7 days' },
+  { value: '30', label: 'Last 30 days' },
+  { value: '90', label: 'Last 90 days' },
+  { value: 'all', label: 'All time' },
+];
 
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 
@@ -26,6 +39,7 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [usage, setUsage] = useState<any>(null);
   const [usageLoading, setUsageLoading] = useState(true);
+  const [range, setRange] = useState('30');
 
   useEffect(() => {
     fetch(`${BACKEND}/api/v1/attribution/dashboard`)
@@ -33,14 +47,68 @@ export default function AnalyticsPage() {
       .then((d: any) => setDashboard(d ?? {}))
       .catch(() => setDashboard({}))
       .finally(() => setLoading(false));
+  }, []);
 
-    // Content & usage analytics (Prisma-backed, first-party API).
-    fetch('/api/analytics')
+  // Content & usage analytics (Prisma-backed). Refetch when range changes.
+  useEffect(() => {
+    setUsageLoading(true);
+    fetch(`/api/analytics?range=${range}`)
       .then((r: any) => (r?.ok ? r.json() : null))
       .then((d: any) => setUsage(d ?? null))
       .catch(() => setUsage(null))
       .finally(() => setUsageLoading(false));
-  }, []);
+  }, [range]);
+
+  // Build a flat dataset for export from the provider + content breakdowns.
+  const buildExportRows = (): ExportRow[] => {
+    const rows: ExportRow[] = [];
+    (usage?.byProvider ?? []).forEach((p: any) => {
+      rows.push({
+        Section: 'Provider',
+        Name: p.label ?? p.provider,
+        Generations: Number(p.generations ?? 0),
+        Tokens: Number(p.tokensUsed ?? 0),
+        Cost: Number(p.cost ?? 0).toFixed(6),
+      });
+    });
+    (usage?.byContentType ?? []).forEach((c: any) => {
+      rows.push({
+        Section: 'Content Type',
+        Name: c.label ?? c.contentType,
+        Generations: Number(c.generations ?? 0),
+        Tokens: '',
+        Cost: '',
+      });
+    });
+    (usage?.generationTrend ?? []).forEach((t: any) => {
+      rows.push({
+        Section: 'Daily Trend',
+        Name: t.date,
+        Generations: Number(t.generations ?? 0),
+        Tokens: '',
+        Cost: '',
+      });
+    });
+    return rows;
+  };
+
+  const handleExportCSV = () => {
+    const rows = buildExportRows();
+    if (!rows.length) { toast.error('No analytics data to export'); return; }
+    exportToCSV(rows, `nucleus-analytics-${range}d`);
+    toast.success('CSV downloaded');
+  };
+
+  const handleExportExcel = async () => {
+    const rows = buildExportRows();
+    if (!rows.length) { toast.error('No analytics data to export'); return; }
+    try {
+      await exportToExcel(rows, `nucleus-analytics-${range}d`, { sheetName: 'Usage Analytics' });
+      toast.success('Excel file downloaded');
+    } catch {
+      toast.error('Export failed');
+    }
+  };
 
   const usageMetrics = [
     { label: 'Total Campaigns', value: usage?.totals?.campaigns, icon: Megaphone, color: 'bg-amber-50 text-amber-600', fmt: (v: any) => Number(v ?? 0).toLocaleString() },
@@ -71,11 +139,38 @@ export default function AnalyticsPage() {
       <DashboardHeader title="Analytics" />
       <div className="flex-1 space-y-6 p-6">
         {/* ============ Content & Usage Analytics (first-party) ============ */}
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Usage Analytics</h2>
-          <p className="text-muted-foreground">
-            AI content generation usage across your campaigns and brands
-          </p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">Usage Analytics</h2>
+            <p className="text-muted-foreground">
+              AI content generation usage across your campaigns and brands
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Date range filter */}
+            <div className="inline-flex rounded-lg border bg-muted p-[3px]">
+              {RANGES.map((r) => (
+                <button
+                  key={r.value}
+                  type="button"
+                  onClick={() => setRange(r.value)}
+                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                    range === r.value ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
+            <Button variant="outline" size="sm" onClick={handleExportCSV}>
+              <Download className="h-4 w-4" />
+              Export CSV
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleExportExcel}>
+              <FileSpreadsheet className="h-4 w-4" />
+              Export Excel
+            </Button>
+          </div>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -96,6 +191,43 @@ export default function AnalyticsPage() {
               </CardContent>
             </Card>
           ))}
+        </div>
+
+        {/* New visualizations: trend, content-type distribution, cost by provider */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle>Generation Trend</CardTitle>
+              <CardDescription>Daily AI generations over the selected period</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64">
+                <GenerationTrendChart data={usage?.generationTrend ?? []} />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Content Type Distribution</CardTitle>
+              <CardDescription>Generations grouped by content type</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64">
+                <ContentTypeChart data={usage?.byContentType ?? []} />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Cost by Provider</CardTitle>
+              <CardDescription>Total spend across AI providers</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64">
+                <CostByProviderChart data={usage?.byProvider ?? []} />
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">

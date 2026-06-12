@@ -403,3 +403,19 @@ model ProviderSetting {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+// -----------------------------------------------------------------------------
+// SystemSettings (Phase 3E — Admin Power Features)
+// -----------------------------------------------------------------------------
+// Single-row table holding platform-wide configuration. We always read/write
+// the row with id = "singleton" (upserted on demand). `featureFlags` is a JSON
+// object of boolean toggles, e.g. { enableRegistration: true, ... }.
+model SystemSettings {
+  id              String   @id @default("singleton")
+  platformName    String   @default("Nucleus AI")
+  supportEmail    String   @default("support@nucleus-ai.com")
+  maintenanceMode Boolean  @default(false)
+  featureFlags    Json     @default("{}")
+  updatedAt       DateTime @updatedAt
+  updatedBy       String?
+}
