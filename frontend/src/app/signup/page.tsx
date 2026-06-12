@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Zap, Mail, Lock, User, MailCheck } from 'lucide-react';
+import { fireConfetti } from '@/components/ui/animated/Confetti';
 
 export default function SignupPage() {
   const [name, setName] = useState('');
@@ -30,7 +31,8 @@ export default function SignupPage() {
         setError(data?.error || 'Signup failed');
         return;
       }
-      // Account created — show the "check your email" confirmation screen.
+      // Account created — celebrate, then show the confirmation screen.
+      fireConfetti('burst');
       setSubmitted(true);
     } catch {
       setError('Something went wrong');

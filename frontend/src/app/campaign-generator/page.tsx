@@ -8,6 +8,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { usePermissions } from '@/hooks/usePermissions';
+import { GradientButton } from '@/components/ui/button-gradient';
+import { fireConfetti } from '@/components/ui/animated/Confetti';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Sparkles, Loader2, Copy, Check, RefreshCw, Save, AlertCircle, Coins, Hash, Lock,
 } from 'lucide-react';
@@ -140,6 +143,7 @@ function CampaignGeneratorInner() {
         toast('Generated in mock mode (no OpenAI key configured)', { icon: '⚠️' });
       } else {
         toast.success('Content generated');
+        fireConfetti('burst');
       }
     } catch (err: any) {
       toast.error(err?.message ?? 'Generation failed');
@@ -298,11 +302,20 @@ function CampaignGeneratorInner() {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <Button onClick={handleGenerate} disabled={generating || !selectedBrand}>
-                {generating
-                  ? <><Loader2 className="mr-1 h-4 w-4 animate-spin" />Generating...</>
-                  : <><Sparkles className="mr-1 h-4 w-4" />Generate {typeLabel}</>}
-              </Button>
+              <GradientButton
+                onClick={handleGenerate}
+                disabled={!selectedBrand}
+                loading={generating}
+                pulse={!generating && !!selectedBrand}
+              >
+                {generating ? (
+                  'Generating…'
+                ) : (
+                  <>
+                    <Sparkles className="mr-1 h-4 w-4" />Generate {typeLabel}
+                  </>
+                )}
+              </GradientButton>
               {result && (
                 <Button variant="outline" onClick={handleGenerate} disabled={generating}>
                   <RefreshCw className="mr-1 h-4 w-4" />Regenerate
@@ -328,14 +341,23 @@ function CampaignGeneratorInner() {
             </CardHeader>
             <CardContent className="space-y-4">
               {generating && !result && (
-                <div className="flex items-center justify-center gap-2 py-10">
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                <div className="flex flex-col items-center justify-center gap-4 py-12">
+                  <motion.div
+                    className="h-14 w-14 rounded-full bg-[linear-gradient(135deg,#6366f1,#8b5cf6,#06b6d4)] shadow-[0_0_30px_rgba(139,92,246,0.5)]"
+                    animate={{ scale: [1, 1.15, 1], opacity: [0.8, 1, 0.8] }}
+                    transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
+                  />
                   <span className="text-sm text-muted-foreground">Generating your {typeLabel}…</span>
                 </div>
               )}
 
               {result && (
-                <>
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                  className="space-y-4"
+                >
                   {result.mocked && (
                     <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
                       <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -399,7 +421,7 @@ function CampaignGeneratorInner() {
                     </div>
                   </div>
                   )}
-                </>
+                </motion.div>
               )}
             </CardContent>
           </Card>

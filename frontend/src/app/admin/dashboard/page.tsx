@@ -9,6 +9,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { motion } from 'framer-motion';
+import { CountUp } from '@/components/ui/animated/CountUp';
 import {
   Users,
   Building2,
@@ -94,6 +96,15 @@ const ROLE_COLORS: Record<string, string> = {
   VIEWER: '#64748b',
 };
 
+const staggerContainer = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.07 } },
+};
+const staggerItem = {
+  hidden: { opacity: 0, y: 16 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.16, 1, 0.3, 1] as const } },
+};
+
 function MetricCard({
   title,
   value,
@@ -106,20 +117,24 @@ function MetricCard({
   hint?: string;
 }) {
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
-          {title}
-        </CardTitle>
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted">
-          <Icon className="h-4 w-4 text-foreground" />
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
-        {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
-      </CardContent>
-    </Card>
+    <motion.div variants={staggerItem} whileHover={{ y: -4 }}>
+      <Card className="glass gradient-border overflow-hidden transition-shadow hover:shadow-[0_12px_32px_-8px_rgba(99,102,241,0.25)]">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            {title}
+          </CardTitle>
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500/15 to-purple-500/10">
+            <Icon className="h-4 w-4 text-foreground" />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">
+            {typeof value === 'number' ? <CountUp value={value} /> : value}
+          </div>
+          {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
+        </CardContent>
+      </Card>
+    </motion.div>
   );
 }
 
@@ -236,7 +251,7 @@ export default function AdminDashboardPage() {
   }));
 
   return (
-    <div className="space-y-6">
+    <div className="bg-mesh -m-4 space-y-6 p-4 md:-m-6 md:p-6">
       <div className="flex flex-col gap-1">
         <h2 className="text-2xl font-bold tracking-tight">Dashboard</h2>
         <p className="text-sm text-muted-foreground">
@@ -294,7 +309,12 @@ export default function AdminDashboardPage() {
       )}
 
       {/* Metric cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <motion.div
+        variants={staggerContainer}
+        initial="hidden"
+        animate="show"
+        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+      >
         <MetricCard
           title="Total Users"
           value={stats.users.total}
@@ -319,11 +339,16 @@ export default function AdminDashboardPage() {
           value={stats.documents.total}
           icon={FileText}
         />
-      </div>
+      </motion.div>
 
       {/* Revenue cards */}
       {stats.billing && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <motion.div
+          variants={staggerContainer}
+          initial="hidden"
+          animate="show"
+          className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+        >
           <MetricCard
             title="Monthly Recurring Revenue"
             value={`$${stats.billing.mrr.toLocaleString()}`}
@@ -352,7 +377,7 @@ export default function AdminDashboardPage() {
               .map((p) => `${p.name}: ${p.activeCount}`)
               .join(' · ') || 'No paid plans yet'}
           />
-        </div>
+        </motion.div>
       )}
 
       {/* Quick actions */}
